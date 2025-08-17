@@ -5,6 +5,7 @@ import { jwtDecode } from 'jwt-decode';
 interface AuthState {
   token: string | null;
   email: string | null;
+  level: string | null;
   isAdmin: boolean;
   login: (token: string) => void;
   logout: () => void;
@@ -20,13 +21,14 @@ export const useAuthStore = create<AuthState>(
     (set) => ({
       token: null,
       email: null,
+      level: null,
       isAdmin: false,
       login: (token: string) => {
-        const { email } = jwtDecode<{ email: string }>(token);
-        const isAdmin = email === 'flor@firenzebeauty.com.ar';
-        set({ token, email, isAdmin });
+        const { email, level } = jwtDecode<{ email: string; level: string }>(token);
+        const isAdmin = level === '5' || level === '6';
+        set({ token, email, level, isAdmin });
       },
-      logout: () => set({ token: null, email: null, isAdmin: false }),
+      logout: () => set({ token: null, email: null, level: null, isAdmin: false }),
     }),
     {
       name: 'auth-storage', // name of the item in the storage (must be unique)
