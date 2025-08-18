@@ -32,13 +32,15 @@ export const useAuthStore = create<AuthState>(
       level: null,
       isAdmin: false,
       login: (token: string) => {
+        console.log('🔍 [AUTH DEBUG] Login called with token length:', token?.length);
         try {
           const decoded = jwtDecode<JwtPayload>(token);
           const { email, level } = decoded;
           const isAdmin = level === '5' || level === '6';
+          console.log('🔍 [AUTH DEBUG] Login successful:', { email, level, isAdmin });
           set({ token, email, level: level || null, isAdmin });
         } catch (error) {
-          console.error('Failed to decode JWT token:', error);
+          console.error('🔍 [AUTH DEBUG] Failed to decode JWT token:', error);
           // Reset auth state on invalid token
           set({ token: null, email: null, level: null, isAdmin: false });
         }
@@ -84,24 +86,24 @@ export const useAuthStore = create<AuthState>(
     }),
     {
       name: 'auth-storage', // name of the item in the storage (must be unique)
-      // Add token validation on hydration
-      onRehydrateStorage: () => (state) => {
-        console.log('🔍 [AUTH DEBUG] Hydrating auth store:', {
-          hasState: !!state,
-          hasToken: !!state?.token,
-          tokenLength: state?.token?.length || 0
-        });
-        
-        if (state?.token) {
-          const isValid = state.isTokenValid();
-          console.log('🔍 [AUTH DEBUG] Token validation on hydration:', { isValid });
-          
-          if (!isValid) {
-            console.log('🔍 [AUTH DEBUG] Token expired on hydration, logging out');
-            state.logout();
-          }
-        }
-      },
+      // TEMPORARILY DISABLE onRehydrateStorage to test if this is the issue
+      // onRehydrateStorage: () => (state) => {
+      //   console.log('🔍 [AUTH DEBUG] Hydrating auth store:', {
+      //     hasState: !!state,
+      //     hasToken: !!state?.token,
+      //     tokenLength: state?.token?.length || 0
+      //   });
+      //   
+      //   if (state?.token) {
+      //     const isValid = state.isTokenValid();
+      //     console.log('🔍 [AUTH DEBUG] Token validation on hydration:', { isValid });
+      //     
+      //     if (!isValid) {
+      //       console.log('🔍 [AUTH DEBUG] Token expired on hydration, logging out');
+      //       state.logout();
+      //     }
+      //   }
+      // },
     }
   )
-); 
+);

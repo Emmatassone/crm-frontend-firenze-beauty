@@ -22,11 +22,23 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const { token, isTokenValid, logout } = useAuthStore.getState();
   
   // Check if token is valid before making request
-  if (token && !isTokenValid()) {
-    console.log('Token expired before request, logging out');
-    logout();
-    window.location.href = '/login';
-    throw new Error('Authentication token expired');
+  if (token) {
+    const isValid = isTokenValid();
+    console.log('🔍 [API DEBUG] Pre-request token validation:', { 
+      endpoint, 
+      hasToken: !!token, 
+      isValid,
+      method: options?.method || 'GET'
+    });
+    
+    if (!isValid) {
+      console.log('🔍 [API DEBUG] Token expired before request, logging out');
+      logout();
+      window.location.href = '/login';
+      throw new Error('Authentication token expired');
+    }
+  } else {
+    console.log('🔍 [API DEBUG] No token available for request:', { endpoint });
   }
   
   const response = await fetch(url, {
@@ -40,7 +52,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   
   // Handle 401 responses (token expired or invalid)
   if (response.status === 401) {
-    console.log('API returned 401, token expired or invalid');
+    console.log('🔍 [API DEBUG] API returned 401 for:', { endpoint, status: response.status });
     logout();
     window.location.href = '/login';
     throw new Error('Authentication failed');
