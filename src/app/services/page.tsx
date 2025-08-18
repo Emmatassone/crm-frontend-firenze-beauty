@@ -1,19 +1,40 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getServices, Service } from '@/lib/api';
 import ServiceList from './ServiceList';
 
-async function getServiceData(): Promise<{ services: Service[], error: string | null }> {
-  try {
-    const services = await getServices();
-    return { services, error: null };
-  } catch (e: any) {
-    console.error("Error al cargar servicios:", e);
-    return { services: [], error: "No se pudieron cargar los servicios." };
-  }
-}
+export default function ServicesPage() {
+  const [services, setServices] = useState<Service[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-export default async function ServicesPage() {
-  const { services, error } = await getServiceData();
+  useEffect(() => {
+    async function fetchServices() {
+      try {
+        const data = await getServices();
+        setServices(data);
+      } catch (e: any) {
+        console.error("Error al cargar servicios:", e);
+        setError("No se pudieron cargar los servicios.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchServices();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center">
+          <div className="text-lg">Cargando servicios...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">

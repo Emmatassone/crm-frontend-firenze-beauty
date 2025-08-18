@@ -1,16 +1,39 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getClientProfiles, ClientProfile } from '@/lib/api';
 import ClientList from './ClientList'; // Import the new client component
 
-async function ClientsPage() {
-  let clients: ClientProfile[] = [];
-  let error: string | null = null;
+function ClientsPage() {
+  const [clients, setClients] = useState<ClientProfile[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  try {
-    clients = await getClientProfiles();
-  } catch (e: any) {
-    console.error('Error al cargar clientes:', e); // Spanish error log
-    error = e.message || "No se pudieron cargar los perfiles de clientes. Por favor, inténtalo más tarde.";
+  useEffect(() => {
+    async function fetchClients() {
+      try {
+        const data = await getClientProfiles();
+        setClients(data);
+      } catch (e: any) {
+        console.error('Error al cargar clientes:', e);
+        setError(e.message || "No se pudieron cargar los perfiles de clientes. Por favor, inténtalo más tarde.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchClients();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center">
+          <div className="text-lg">Cargando clientes...</div>
+        </div>
+      </div>
+    );
   }
 
   return (

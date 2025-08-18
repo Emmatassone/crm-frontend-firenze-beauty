@@ -1,16 +1,39 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getProductSales, ProductSale } from '@/lib/api';
 import SaleList from './SaleList';
 
-async function SalesPage() {
-  let sales: ProductSale[] = [];
-  let error: string | null = null;
+function SalesPage() {
+  const [sales, setSales] = useState<ProductSale[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  try {
-    sales = await getProductSales();
-  } catch (e: any) {
-    console.error('Error al cargar ventas:', e);
-    error = e.message || "No se pudieron cargar las ventas. Por favor, inténtalo más tarde.";
+  useEffect(() => {
+    async function fetchSales() {
+      try {
+        const data = await getProductSales();
+        setSales(data);
+      } catch (e: any) {
+        console.error('Error al cargar ventas:', e);
+        setError(e.message || "No se pudieron cargar las ventas. Por favor, inténtalo más tarde.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchSales();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center">
+          <div className="text-lg">Cargando ventas...</div>
+        </div>
+      </div>
+    );
   }
 
   return (

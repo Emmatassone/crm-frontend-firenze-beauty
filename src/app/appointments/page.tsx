@@ -1,3 +1,6 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getAppointments, Appointment } from '@/lib/api';
 import AppointmentList from './AppointmentList';
@@ -15,15 +18,35 @@ const formatDateTime = (isoString?: string) => {
   }
 };
 
-async function AppointmentsPage() {
-  let appointments: Appointment[] = [];
-  let error: string | null = null;
+function AppointmentsPage() {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  try {
-    appointments = await getAppointments();
-  } catch (e: any) {
-    console.error('Error al cargar turnos:', e);
-    error = e.message || "No se pudieron cargar los turnos. Por favor, inténtalo más tarde.";
+  useEffect(() => {
+    async function fetchAppointments() {
+      try {
+        const data = await getAppointments();
+        setAppointments(data);
+      } catch (e: any) {
+        console.error('Error al cargar turnos:', e);
+        setError(e.message || "No se pudieron cargar los turnos. Por favor, inténtalo más tarde.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchAppointments();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center">
+          <div className="text-lg">Cargando turnos...</div>
+        </div>
+      </div>
+    );
   }
 
   return (

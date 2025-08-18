@@ -1,16 +1,39 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getEmployees, Employee } from '@/lib/api';
 import EmployeeList from './EmployeeList';
 
-async function EmployeesPage() {
-  let employees: Employee[] = [];
-  let error: string | null = null;
+function EmployeesPage() {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  try {
-    employees = await getEmployees();
-  } catch (e: any) {
-    console.error('Error al cargar empleados:', e);
-    error = e.message || "No se pudieron cargar los empleados. Por favor, inténtalo más tarde.";
+  useEffect(() => {
+    async function fetchEmployees() {
+      try {
+        const data = await getEmployees();
+        setEmployees(data);
+      } catch (e: any) {
+        console.error('Error al cargar empleados:', e);
+        setError(e.message || "No se pudieron cargar los empleados. Por favor, inténtalo más tarde.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchEmployees();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center">
+          <div className="text-lg">Cargando empleados...</div>
+        </div>
+      </div>
+    );
   }
 
   return (

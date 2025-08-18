@@ -1,16 +1,39 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getProducts, Product } from '@/lib/api';
 import ProductList from './ProductList';
 
-async function ProductsPage() {
-  let products: Product[] = [];
-  let error: string | null = null;
+function ProductsPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  try {
-    products = await getProducts();
-  } catch (e: any) {
-    console.error('Error al cargar productos:', e);
-    error = e.message || "No se pudieron cargar los productos. Por favor, inténtalo más tarde.";
+  useEffect(() => {
+    async function fetchProducts() {
+      try {
+        const data = await getProducts();
+        setProducts(data);
+      } catch (e: any) {
+        console.error('Error al cargar productos:', e);
+        setError(e.message || "No se pudieron cargar los productos. Por favor, inténtalo más tarde.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchProducts();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center">
+          <div className="text-lg">Cargando productos...</div>
+        </div>
+      </div>
+    );
   }
 
   return (
