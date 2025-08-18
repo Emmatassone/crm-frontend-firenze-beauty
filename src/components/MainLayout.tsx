@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '../lib/store/auth-debug';
 import AuthDebugger from './AuthDebugger';
@@ -10,12 +10,25 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
   const { token, isTokenValid, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Wait for client-side hydration to complete
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   useEffect(() => {
-    console.log('🔍 [LAYOUT DEBUG] MainLayout effect triggered:', {
+    // Don't run auth checks until hydration is complete
+    if (!isHydrated) {
+      console.log('🔍 [LAYOUT DEBUG] Waiting for hydration to complete...');
+      return;
+    }
+
+    console.log('🔍 [LAYOUT DEBUG] MainLayout effect triggered (post-hydration):', {
       hasToken: !!token,
       pathname,
-      isLoginPage: pathname === '/login'
+      isLoginPage: pathname === '/login',
+      isHydrated
     });
 
     // Check if we have a token but it's expired
@@ -36,11 +49,17 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
       console.log('🔍 [LAYOUT DEBUG] No token, redirecting to login');
       router.push('/login');
     }
-  }, [token, pathname, router, isTokenValid, logout]);
+  }, [token, pathname, router, isTokenValid, logout, isHydrated]);
 
-  // Show loading or redirect if no valid token
-  if (!token && pathname !== '/login') {
-    return null; // or a loading spinner
+  // Show loading during hydration or if no valid token
+  if (!isHydrated || (!token && pathname !== '/login')) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">
+          {!isHydrated ? 'Iniciando aplicación...' : 'Cargando...'}
+        </div>
+      </div>
+    );
   }
 
   return (
