@@ -13,16 +13,39 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
-// Generic request function
+// Generic request function with authentication
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
+  
+  // Get auth store dynamically to avoid circular dependencies
+  const { useAuthStore } = await import('./store/auth');
+  const { token, isTokenValid, logout } = useAuthStore.getState();
+  
+  // Check if token is valid before making request
+  if (token && !isTokenValid()) {
+    console.log('Token expired before request, logging out');
+    logout();
+    window.location.href = '/login';
+    throw new Error('Authentication token expired');
+  }
+  
   const response = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
       ...options?.headers,
     },
   });
+  
+  // Handle 401 responses (token expired or invalid)
+  if (response.status === 401) {
+    console.log('API returned 401, token expired or invalid');
+    logout();
+    window.location.href = '/login';
+    throw new Error('Authentication failed');
+  }
+  
   return handleResponse<T>(response);
 }
 

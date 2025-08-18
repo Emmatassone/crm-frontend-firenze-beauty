@@ -5,17 +5,27 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '../lib/store/auth';
 
 const MainLayout = ({ children }: { children: React.ReactNode }) => {
-  const { token } = useAuthStore();
+  const { token, isTokenValid, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
+    // Check if we have a token but it's expired
+    if (token && !isTokenValid()) {
+      console.log('Token expired, logging out');
+      logout();
+      router.push('/login');
+      return;
+    }
+
+    // Redirect to login if no token
     if (!token && pathname !== '/login') {
       router.push('/login');
     }
-  }, [token, pathname, router]);
+  }, [token, pathname, router, isTokenValid, logout]);
 
-  if (!token && pathname !== '/login') {
+  // Show loading or redirect if no valid token
+  if ((!token || !isTokenValid()) && pathname !== '/login') {
     return null; // or a loading spinner
   }
 

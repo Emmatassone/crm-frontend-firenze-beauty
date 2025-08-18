@@ -9,6 +9,14 @@ interface AuthState {
   isAdmin: boolean;
   login: (token: string) => void;
   logout: () => void;
+  isTokenValid: () => boolean;
+}
+
+interface JwtPayload {
+  email: string;
+  level?: string;
+  exp: number; // JWT expiration timestamp
+  sub: string;
 }
 
 type MyPersist = (
@@ -18,20 +26,47 @@ type MyPersist = (
 
 export const useAuthStore = create<AuthState>(
   (persist as MyPersist)(
-    (set) => ({
+    (set, get) => ({
       token: null,
       email: null,
       level: null,
       isAdmin: false,
       login: (token: string) => {
-        const { email, level } = jwtDecode<{ email: string; level: string }>(token);
-        const isAdmin = level === '5' || level === '6';
-        set({ token, email, level, isAdmin });
+        try {
+          const decoded = jwtDecode<JwtPayload>(token);
+          const { email, level } = decoded;
+          const isAdmin = level === '5' || level === '6';
+          set({ token, email, level: level || null, isAdmin });
+        } catch (error) {
+          console.error('Failed to decode JWT token:', error);
+          // Reset auth state on invalid token
+          set({ token: null, email: null, level: null, isAdmin: false });
+        }
       },
       logout: () => set({ token: null, email: null, level: null, isAdmin: false }),
+      isTokenValid: () => {
+        const { token } = get();
+        if (!token) return false;
+        
+        try {
+          const decoded = jwtDecode<JwtPayload>(token);
+          const currentTime = Date.now() / 1000; // Convert to seconds
+          return decoded.exp > currentTime;
+        } catch (error) {
+          console.error('Error validating token:', error);
+          return false;
+        }
+      },
     }),
     {
       name: 'auth-storage', // name of the item in the storage (must be unique)
+      // Add token validation on hydration
+      onRehydrateStorage: () => (state) => {
+        if (state?.token && !state.isTokenValid()) {
+          console.log('Token expired on hydration, logging out');
+          state.logout();
+        }
+      },
     }
   )
 ); 
