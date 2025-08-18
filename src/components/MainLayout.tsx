@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuthStore } from '../lib/store/auth';
+import { useAuthStore } from '../lib/store/auth-debug';
 import AuthDebugger from './AuthDebugger';
 import HydrationDebugger from './HydrationDebugger';
 
@@ -39,7 +39,7 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
   }, [token, pathname, router, isTokenValid, logout]);
 
   // Show loading or redirect if no valid token
-  if ((!token || !isTokenValid()) && pathname !== '/login') {
+  if (!token && pathname !== '/login') {
     return null; // or a loading spinner
   }
 
