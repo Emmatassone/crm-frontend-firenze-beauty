@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuthStore } from '../lib/store/auth-debug';
+import { useAuthStore } from '../lib/store/auth';
 import AuthDebugger from './AuthDebugger';
 import HydrationDebugger from './HydrationDebugger';
 

@@ -18,7 +18,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
   // Get auth store dynamically to avoid circular dependencies
-  const { useAuthStore } = await import('./store/auth-debug');
+  const { useAuthStore } = await import('./store/auth');
   const { token, isTokenValid, logout } = useAuthStore.getState();
   
   // Check if token is valid before making request

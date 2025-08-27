@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAuthStore } from '../lib/store/auth-debug';
+import { useAuthStore } from '../lib/store/auth';
 
 export default function AuthDebugger() {
   const { token, email, level, isAdmin, isTokenValid } = useAuthStore();
