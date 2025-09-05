@@ -1,4 +1,8 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001'
+)
+  .trim()
+  .replace(/\/+$/, '');
 
 // Helper function for handling API responses
 async function handleResponse<T>(response: Response): Promise<T> {

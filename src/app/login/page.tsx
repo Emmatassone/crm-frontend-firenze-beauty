@@ -9,18 +9,23 @@ const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { login: storeLogin } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (isLoading) return;
+    setIsLoading(true);
     try {
       const { access_token } = await login(email, password);
       storeLogin(access_token);
       router.push('/');
     } catch (err) {
       setError('Credenciales inválidas');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -66,10 +71,16 @@ const LoginPage = () => {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+              disabled={isLoading}
+              className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 ${isLoading ? 'bg-pink-400 cursor-not-allowed' : 'bg-pink-600 hover:bg-pink-700'}`}
             >
-              Ingresar
+              {isLoading ? 'Procesando…' : 'Ingresar'}
             </button>
+            {isLoading && (
+              <div className="mt-3 text-center text-sm text-gray-600 animate-pulse">
+                🔄 Procesando tu ingreso…
+              </div>
+            )}
           </div>
         </form>
       </div>
