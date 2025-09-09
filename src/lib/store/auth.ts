@@ -44,19 +44,12 @@ export const useAuthStore = create<AuthState>(
         }
       },
       logout: () => {
-        console.log('🔍 [AUTH DEBUG] Logout called from:', new Error().stack);
         set({ token: null, email: null, level: null, isAdmin: false });
       },
       isTokenValid: () => {
         const { token } = get();
-        console.log('🔍 [AUTH DEBUG] Checking token validity:', { 
-          hasToken: !!token, 
-          tokenLength: token?.length || 0,
-          tokenStart: token?.substring(0, 20) + '...' || 'null'
-        });
         
         if (!token) {
-          console.log('🔍 [AUTH DEBUG] No token found');
           return false;
         }
         
@@ -64,20 +57,9 @@ export const useAuthStore = create<AuthState>(
           const decoded = jwtDecode<JwtPayload>(token);
           const currentTime = Date.now() / 1000; // Convert to seconds
           const isValid = decoded.exp > currentTime;
-          const timeUntilExpiry = decoded.exp - currentTime;
-          
-          console.log('🔍 [AUTH DEBUG] Token validation:', {
-            isValid,
-            expiresAt: new Date(decoded.exp * 1000).toISOString(),
-            currentTime: new Date(currentTime * 1000).toISOString(),
-            timeUntilExpiryMinutes: Math.floor(timeUntilExpiry / 60),
-            email: decoded.email,
-            level: decoded.level
-          });
           
           return isValid;
         } catch (error) {
-          console.error('🔍 [AUTH DEBUG] Error validating token:', error);
           return false;
         }
       },
@@ -86,18 +68,10 @@ export const useAuthStore = create<AuthState>(
       name: 'auth-storage', // name of the item in the storage (must be unique)
       // Add token validation on hydration
       onRehydrateStorage: () => (state) => {
-        console.log('🔍 [AUTH DEBUG] Hydrating auth store:', {
-          hasState: !!state,
-          hasToken: !!state?.token,
-          tokenLength: state?.token?.length || 0
-        });
-        
         if (state?.token) {
           const isValid = state.isTokenValid();
-          console.log('🔍 [AUTH DEBUG] Token validation on hydration:', { isValid });
           
           if (!isValid) {
-            console.log('🔍 [AUTH DEBUG] Token expired on hydration, logging out');
             state.logout();
           }
         }
