@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getProductById, updateProduct, type Product, type UpdateProductDto } from '@/lib/api';
+import { getProductById, updateProduct, deleteProduct, type Product, type UpdateProductDto } from '@/lib/api';
 
 export default function ProductDetailsPage() {
   const params = useParams();
@@ -14,6 +14,8 @@ export default function ProductDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editForm, setEditForm] = useState<UpdateProductDto>({});
 
   useEffect(() => {
@@ -87,6 +89,29 @@ export default function ProductDetailsPage() {
     }));
   };
 
+  const handleDelete = async () => {
+    if (!id) return;
+    
+    setIsDeleting(true);
+    setError(null);
+    
+    try {
+      await deleteProduct(id);
+      router.push('/products');
+    } catch (err: any) {
+      setError(err?.message || 'No se pudo eliminar el producto');
+      setIsDeleting(false);
+    }
+  };
+
+  const confirmDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
@@ -121,6 +146,13 @@ export default function ProductDetailsPage() {
                 className="px-4 py-2 rounded bg-pink-600 hover:bg-pink-700 text-white"
               >
                 Editar
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white"
+              >
+                {isDeleting ? 'Eliminando...' : 'Borrar'}
               </button>
               <button
                 onClick={() => router.back()}
@@ -265,6 +297,37 @@ export default function ProductDetailsPage() {
           <div className="text-lg text-gray-900">{new Date(product.updatedAt).toLocaleString()}</div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Confirmar Eliminación
+            </h3>
+            <p className="text-gray-600 mb-6">
+              ¿Estás seguro de que deseas eliminar el producto "{product.productName}"? 
+              Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 disabled:bg-gray-100"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white"
+              >
+                {isDeleting ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
