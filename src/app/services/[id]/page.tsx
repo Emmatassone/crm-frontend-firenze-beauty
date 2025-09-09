@@ -99,6 +99,7 @@ export default function ServiceDetailsPage() {
     } catch (err: any) {
       setError(err?.message || 'No se pudo eliminar el servicio');
       setIsDeleting(false);
+      setShowDeleteConfirm(false); // Close the modal on error
     }
   };
 

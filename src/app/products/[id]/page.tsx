@@ -101,6 +101,7 @@ export default function ProductDetailsPage() {
     } catch (err: any) {
       setError(err?.message || 'No se pudo eliminar el producto');
       setIsDeleting(false);
+      setShowDeleteConfirm(false); // Close the modal on error
     }
   };
 
