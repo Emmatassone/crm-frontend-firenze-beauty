@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getProductById, type Product } from '@/lib/api';
+import { getProductById, updateProduct, type Product, type UpdateProductDto } from '@/lib/api';
 
 export default function ProductDetailsPage() {
   const params = useParams();
@@ -12,6 +12,9 @@ export default function ProductDetailsPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editForm, setEditForm] = useState<UpdateProductDto>({});
 
   useEffect(() => {
     if (!id) return;
@@ -22,6 +25,14 @@ export default function ProductDetailsPage() {
       .then((data) => {
         if (!isMounted) return;
         setProduct(data);
+        setEditForm({
+          productName: data.productName,
+          currentStock: data.currentStock,
+          model: data.model,
+          purchasePrice: data.purchasePrice,
+          sellingPrice: data.sellingPrice,
+          lastRestockDate: data.lastRestockDate,
+        });
       })
       .catch((err) => {
         if (!isMounted) return;
@@ -36,6 +47,45 @@ export default function ProductDetailsPage() {
       isMounted = false;
     };
   }, [id]);
+
+  const handleSave = async () => {
+    if (!id || !product) return;
+    
+    setIsSaving(true);
+    setError(null);
+    
+    try {
+      const updatedProduct = await updateProduct(id, editForm);
+      setProduct(updatedProduct);
+      setIsEditing(false);
+    } catch (err: any) {
+      setError(err?.message || 'No se pudo actualizar el producto');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (product) {
+      setEditForm({
+        productName: product.productName,
+        currentStock: product.currentStock,
+        model: product.model,
+        purchasePrice: product.purchasePrice,
+        sellingPrice: product.sellingPrice,
+        lastRestockDate: product.lastRestockDate,
+      });
+    }
+    setIsEditing(false);
+    setError(null);
+  };
+
+  const handleInputChange = (field: keyof UpdateProductDto, value: string | number) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: value === '' ? undefined : value
+    }));
+  };
 
   if (isLoading) {
     return (
@@ -63,38 +113,146 @@ export default function ProductDetailsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-800">Detalle de Producto</h1>
-        <button
-          onClick={() => router.back()}
-          className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800"
-        >
-          Volver
-        </button>
+        <div className="flex gap-2">
+          {!isEditing ? (
+            <>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-4 py-2 rounded bg-pink-600 hover:bg-pink-700 text-white"
+              >
+                Editar
+              </button>
+              <button
+                onClick={() => router.back()}
+                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800"
+              >
+                Volver
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white"
+              >
+                {isSaving ? 'Guardando...' : 'Guardar'}
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={isSaving}
+                className="px-4 py-2 rounded bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 text-white"
+              >
+                Cancelar
+              </button>
+            </>
+          )}
+        </div>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <p className="text-red-600">{error}</p>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <div className="text-sm text-gray-500">Nombre</div>
-          <div className="text-lg font-medium text-gray-900">{product.productName}</div>
+          <label className="text-sm text-gray-500 block">Nombre</label>
+          {isEditing ? (
+            <input
+              type="text"
+              value={editForm.productName || ''}
+              onChange={(e) => handleInputChange('productName', e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+              disabled={isSaving}
+            />
+          ) : (
+            <div className="text-lg font-medium text-gray-900">{product.productName}</div>
+          )}
         </div>
 
         <div>
-          <div className="text-sm text-gray-500">Modelo</div>
-          <div className="text-lg text-gray-900">{product.model || 'N/D'}</div>
+          <label className="text-sm text-gray-500 block">Modelo</label>
+          {isEditing ? (
+            <input
+              type="text"
+              value={editForm.model || ''}
+              onChange={(e) => handleInputChange('model', e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+              disabled={isSaving}
+              placeholder="N/D"
+            />
+          ) : (
+            <div className="text-lg text-gray-900">{product.model || 'N/D'}</div>
+          )}
         </div>
 
         <div>
-          <div className="text-sm text-gray-500">Existencias</div>
-          <div className="text-lg text-gray-900">{product.currentStock ?? 0}</div>
+          <label className="text-sm text-gray-500 block">Existencias</label>
+          {isEditing ? (
+            <input
+              type="number"
+              min="0"
+              value={editForm.currentStock ?? ''}
+              onChange={(e) => handleInputChange('currentStock', parseInt(e.target.value) || 0)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+              disabled={isSaving}
+            />
+          ) : (
+            <div className="text-lg text-gray-900">{product.currentStock ?? 0}</div>
+          )}
         </div>
 
         <div>
-          <div className="text-sm text-gray-500">Precio de Venta</div>
-          <div className="text-lg text-gray-900">{product.sellingPrice != null ? `$${Number(product.sellingPrice).toFixed(2)}` : 'N/D'}</div>
+          <label className="text-sm text-gray-500 block">Precio de Compra</label>
+          {isEditing ? (
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={editForm.purchasePrice ?? ''}
+              onChange={(e) => handleInputChange('purchasePrice', parseFloat(e.target.value) || undefined)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+              disabled={isSaving}
+              placeholder="0.00"
+            />
+          ) : (
+            <div className="text-lg text-gray-900">{product.purchasePrice != null ? `$${Number(product.purchasePrice).toFixed(2)}` : 'N/D'}</div>
+          )}
         </div>
 
         <div>
-          <div className="text-sm text-gray-500">Último Reabastecimiento</div>
-          <div className="text-lg text-gray-900">{product.lastRestockDate ? new Date(product.lastRestockDate).toLocaleDateString() : 'N/D'}</div>
+          <label className="text-sm text-gray-500 block">Precio de Venta</label>
+          {isEditing ? (
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={editForm.sellingPrice ?? ''}
+              onChange={(e) => handleInputChange('sellingPrice', parseFloat(e.target.value) || undefined)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+              disabled={isSaving}
+              placeholder="0.00"
+            />
+          ) : (
+            <div className="text-lg text-gray-900">{product.sellingPrice != null ? `$${Number(product.sellingPrice).toFixed(2)}` : 'N/D'}</div>
+          )}
+        </div>
+
+        <div>
+          <label className="text-sm text-gray-500 block">Último Reabastecimiento</label>
+          {isEditing ? (
+            <input
+              type="date"
+              value={editForm.lastRestockDate || ''}
+              onChange={(e) => handleInputChange('lastRestockDate', e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+              disabled={isSaving}
+            />
+          ) : (
+            <div className="text-lg text-gray-900">{product.lastRestockDate ? new Date(product.lastRestockDate).toLocaleDateString() : 'N/D'}</div>
+          )}
         </div>
 
         <div>
