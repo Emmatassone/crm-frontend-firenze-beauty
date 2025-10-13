@@ -14,7 +14,7 @@ const clientSchema = z.object({
   email: z.string().email('Debe ser un correo electrónico válido').optional().or(z.literal('')),
   dateOfBirth: z.string().optional().refine(val => {
     if (!val || val.trim() === '') return true;
-    return /^d{2}-d{2}-d{4}$/.test(val);
+    return /^\d{2}-\d{2}-\d{4}$/.test(val);
   }, { message: 'La fecha debe ser DD-MM-AAAA' }),
   hairDetails: z.string().optional(),
   eyelashDetails: z.string().optional(),
