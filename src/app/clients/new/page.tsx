@@ -19,7 +19,8 @@ export default function NewClientPage() {
       const payload: CreateClientProfileDto = {
         ...data,
         name: data.name === '' ? undefined : data.name,
-        email: data.email === '' ? undefined : data.email,
+        phoneNumber: `${data.countryCode}${data.phoneNumber}`.replace(/\+/g, ''),
+        email: data.email,
         dateOfBirth: data.dateOfBirth ? data.dateOfBirth.split('-').reverse().join('-') : undefined,
         hairDetails: data.hairDetails === '' ? undefined : data.hairDetails,
         eyelashDetails: data.eyelashDetails === '' ? undefined : data.eyelashDetails,

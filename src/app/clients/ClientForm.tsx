@@ -8,10 +8,13 @@ import { ClientProfile } from '@/lib/api';
 
 const clientSchema = z.object({
   name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres').max(100, 'El nombre no puede exceder los 100 caracteres').optional().or(z.literal('')),
-  phoneNumber: z.string().min(1, 'El teléfono es requerido').refine(val => /^\+?[1-9]\d{1,14}$/.test(val), { 
-    message: 'El número de teléfono debe ser un formato internacional válido (ej: +1234567890)'
+  countryCode: z.string().min(1, 'El código de país es requerido').refine(val => /^\+\d{1,4}$/.test(val), { 
+    message: 'El código de país debe comenzar con + y contener 1-4 dígitos'
   }),
-  email: z.string().email('Debe ser un correo electrónico válido').optional().or(z.literal('')),
+  phoneNumber: z.string().min(1, 'El número de teléfono es requerido').refine(val => /^\d{6,14}$/.test(val), { 
+    message: 'El número de teléfono debe contener entre 6 y 14 dígitos'
+  }),
+  email: z.string().min(1, 'El correo electrónico es requerido').email('Debe ser un correo electrónico válido'),
   dateOfBirth: z.string().optional().refine(val => {
     if (!val || val.trim() === '') return true;
     return /^\d{2}-\d{2}-\d{4}$/.test(val);
@@ -40,6 +43,31 @@ export default function ClientForm({ onSubmit, isLoading, defaultValues, isEdit 
     resolver: zodResolver(clientSchema),
     defaultValues: {
       ...defaultValues,
+      countryCode: defaultValues?.phoneNumber ? (() => {
+        // El backend guarda el número sin el +, por ejemplo: 542215661377
+        // Necesitamos extraer el código de país (54) y agregar el +
+        const phoneStr = defaultValues.phoneNumber;
+        if (phoneStr.startsWith('+')) {
+          const match = phoneStr.match(/^(\+\d{1,4})/);
+          return match ? match[1] : '+54';
+        } else {
+          // Si no tiene +, asumimos que empieza con el código de país
+          // Extraemos los primeros 2-3 dígitos (54 para Argentina)
+          const match = phoneStr.match(/^(\d{2,3})/);
+          return match ? `+${match[1]}` : '+54';
+        }
+      })() : '+54',
+      phoneNumber: defaultValues?.phoneNumber ? (() => {
+        const phoneStr = defaultValues.phoneNumber;
+        if (phoneStr.startsWith('+')) {
+          const match = phoneStr.match(/^\+\d{1,4}(\d+)/);
+          return match ? match[1] : '';
+        } else {
+          // Si no tiene +, asumimos formato 542215661377, quitamos los primeros 2-3 dígitos
+          const match = phoneStr.match(/^\d{2,3}(\d+)/);
+          return match ? match[1] : phoneStr;
+        }
+      })() : '',
       dateOfBirth: defaultValues?.dateOfBirth ? (() => {
           const date = new Date(defaultValues.dateOfBirth);
           const day = String(date.getUTCDate()).padStart(2, '0');
@@ -65,12 +93,32 @@ export default function ClientForm({ onSubmit, isLoading, defaultValues, isEdit 
 
       <div>
         <label htmlFor="phoneNumber" className={labelStyle}>Teléfono <span className="text-red-500">*</span></label>
-        <input id="phoneNumber" type="tel" {...register('phoneNumber')} className={`${inputStyle} ${errors.phoneNumber ? 'border-red-500' : ''}`} />
+        <div className="flex gap-2">
+          <div className="w-28">
+            <input 
+              id="countryCode" 
+              type="text" 
+              placeholder="+54"
+              {...register('countryCode')} 
+              className={`${inputStyle} ${errors.countryCode ? 'border-red-500' : ''}`} 
+            />
+          </div>
+          <div className="flex-1">
+            <input 
+              id="phoneNumber" 
+              type="tel" 
+              placeholder="2215661377"
+              {...register('phoneNumber')} 
+              className={`${inputStyle} ${errors.phoneNumber ? 'border-red-500' : ''}`} 
+            />
+          </div>
+        </div>
+        {errors.countryCode && <p className={errorStyle}>{errors.countryCode.message}</p>}
         {errors.phoneNumber && <p className={errorStyle}>{errors.phoneNumber.message}</p>}
       </div>
 
       <div>
-        <label htmlFor="email" className={labelStyle}>Correo Electrónico</label>
+        <label htmlFor="email" className={labelStyle}>Correo Electrónico <span className="text-red-500">*</span></label>
         <input id="email" type="email" {...register('email')} className={`${inputStyle} ${errors.email ? 'border-red-500' : ''}`} />
         {errors.email && <p className={errorStyle}>{errors.email.message}</p>}
       </div>
