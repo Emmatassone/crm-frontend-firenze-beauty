@@ -53,6 +53,13 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
     fetchData();
   }, []);
     
+  const getCurrentTime = () => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
   const {
     register,
     handleSubmit,
@@ -71,6 +78,8 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
           const year = date.getUTCFullYear();
           return `${day}-${month}-${year}`;
       })() : '',
+      arrivalTime: defaultValues?.arrivalTime || getCurrentTime(),
+      leaveTime: defaultValues?.leaveTime || getCurrentTime(),
     },
   });
 
@@ -102,12 +111,19 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
 
         <div>
             <label htmlFor="clientId" className={labelStyle}>Cliente</label>
-            <select id="clientId" {...register('clientId')} className={`${inputStyle} ${errors.clientId ? 'border-red-500' : ''}`}>
-                <option value="">Seleccione un cliente</option>
-                {clients.map(client => (
-                    <option key={client.id} value={client.id}>{client.name}</option>
-                ))}
-            </select>
+            <Controller
+                name="clientId"
+                control={control}
+                render={({ field }) => (
+                    <Select
+                        options={clients.map(client => ({ value: client.id, label: client.name || client.phoneNumber }))}
+                        onChange={option => field.onChange(option ? option.value : '')}
+                        value={clients.find(c => c.id === field.value) ? { value: field.value, label: clients.find(c => c.id === field.value)?.name || clients.find(c => c.id === field.value)?.phoneNumber || '' } : null}
+                        isClearable
+                        placeholder="Seleccione un cliente"
+                    />
+                )}
+            />
             {errors.clientId && <p className={errorStyle}>{errors.clientId.message}</p>}
         </div>
         
@@ -118,7 +134,7 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
         </div>
 
         <div>
-            <label htmlFor="attendedEmployee" className={labelStyle}>Empleado que Atendió</label>
+            <label htmlFor="attendedEmployee" className={labelStyle}>Atendida por</label>
             <select id="attendedEmployee" {...register('attendedEmployee')} className={`${inputStyle} ${errors.attendedEmployee ? 'border-red-500' : ''}`}>
                 <option value="">Seleccione un empleado</option>
                 {employees.map(employee => (
@@ -159,7 +175,19 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
 
         <div>
           <label htmlFor="usedDiscount" className={labelStyle}>Descuento Aplicado</label>
-          <input id="usedDiscount" type="text" {...register('usedDiscount')} className={`${inputStyle} ${errors.usedDiscount ? 'border-red-500' : ''}`} />
+          <Controller
+              name="usedDiscount"
+              control={control}
+              render={({ field }) => (
+                  <Select
+                      isMulti
+                      options={Array.from({ length: 21 }, (_, i) => i * 5).map(value => ({ value: value.toString(), label: `${value}%` }))}
+                      onChange={options => field.onChange(options.map(option => option.value).join(','))}
+                      value={field.value ? field.value.split(',').map(item => ({ value: item, label: `${item}%` })) : []}
+                      placeholder="Seleccione descuentos"
+                  />
+              )}
+          />
           {errors.usedDiscount && <p className={errorStyle}>{errors.usedDiscount.message}</p>}
         </div>
 
