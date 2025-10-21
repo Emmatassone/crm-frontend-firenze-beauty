@@ -9,9 +9,8 @@ import { Appointment, ClientProfile, Employee, getEmployees, getServices, Servic
 import { useEffect, useState } from 'react';
 
 const appointmentSchema = z.object({
-  appointmentDate: z.string().optional().refine(val => {
-    if (!val || val.trim() === '') return true;
-    return /^d{2}-d{2}-d{4}$/.test(val);
+  appointmentDate: z.string().min(1, 'La fecha es requerida').refine(val => {
+    return /^\d{2}-\d{2}-\d{4}$/.test(val);
   }, { message: 'La fecha debe ser DD-MM-AAAA' }),
   attendedEmployee: z.string().min(1, 'El empleado es requerido'),
   clientName: z.string().min(1, 'El nombre del cliente es requerido'),
@@ -60,6 +59,14 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
     return `${hours}:${minutes}`;
   };
 
+  const getTodayDate = () => {
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = today.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
   const {
     register,
     handleSubmit,
@@ -77,7 +84,7 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
           const month = String(date.getUTCMonth() + 1).padStart(2, '0');
           const year = date.getUTCFullYear();
           return `${day}-${month}-${year}`;
-      })() : '',
+      })() : getTodayDate(),
       arrivalTime: defaultValues?.arrivalTime || getCurrentTime(),
       leaveTime: defaultValues?.leaveTime || getCurrentTime(),
     },
@@ -117,7 +124,18 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
                 render={({ field }) => (
                     <Select
                         options={clients.map(client => ({ value: client.id, label: client.name || client.phoneNumber }))}
-                        onChange={option => field.onChange(option ? option.value : '')}
+                        onChange={option => {
+                            field.onChange(option ? option.value : '');
+                            // Auto-fill clientName when client is selected
+                            if (option) {
+                                const selectedClient = clients.find(c => c.id === option.value);
+                                if (selectedClient) {
+                                    setValue('clientName', selectedClient.name || selectedClient.phoneNumber || '');
+                                }
+                            } else {
+                                setValue('clientName', '');
+                            }
+                        }}
                         value={clients.find(c => c.id === field.value) ? { value: field.value, label: clients.find(c => c.id === field.value)?.name || clients.find(c => c.id === field.value)?.phoneNumber || '' } : null}
                         isClearable
                         placeholder="Seleccione un cliente"
@@ -126,15 +144,9 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
             />
             {errors.clientId && <p className={errorStyle}>{errors.clientId.message}</p>}
         </div>
-        
-        <div>
-          <label htmlFor="clientName" className={labelStyle}>Nombre del Cliente (auto-rellenado)</label>
-          <input id="clientName" type="text" {...register('clientName')} readOnly className={`${inputStyle} bg-gray-100 ${errors.clientName ? 'border-red-500' : ''}`} />
-          {errors.clientName && <p className={errorStyle}>{errors.clientName.message}</p>}
-        </div>
 
         <div>
-            <label htmlFor="attendedEmployee" className={labelStyle}>Atendida por</label>
+            <label htmlFor="attendedEmployee" className={labelStyle}>Atendido por</label>
             <select id="attendedEmployee" {...register('attendedEmployee')} className={`${inputStyle} ${errors.attendedEmployee ? 'border-red-500' : ''}`}>
                 <option value="">Seleccione un empleado</option>
                 {employees.map(employee => (

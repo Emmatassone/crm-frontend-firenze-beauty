@@ -69,9 +69,6 @@ export default function NewAppointmentPage() {
         onSubmit={onSubmit} 
         isLoading={isLoading}
         clients={clients}
-        defaultValues={{
-          appointmentDate: new Date().toISOString(),
-        }}
       />
     </div>
   );
