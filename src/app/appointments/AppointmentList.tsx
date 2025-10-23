@@ -14,7 +14,11 @@ const tdStyle = "px-6 py-4 whitespace-nowrap text-sm text-gray-700";
 const formatDateTime = (isoString?: string) => {
   if (!isoString) return 'N/D';
   try {
-    return new Date(isoString).toLocaleString('es-ES', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const date = new Date(isoString);
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    return `${day}/${month}/${year}`;
   } catch (e) { return 'Fecha Inválida'; }
 };
 
@@ -62,7 +66,7 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
               <tr>
                 <th scope="col" className={thStyle}>Cliente</th>
                 <th scope="col" className={thStyle}>Servicio</th>
-                <th scope="col" className={thStyle}>Fecha y Hora</th>
+                <th scope="col" className={thStyle}>Fecha</th>
                 <th scope="col" className={thStyle}>Empleado</th>
                 <th scope="col" className={thStyle}>Acciones</th>
               </tr>

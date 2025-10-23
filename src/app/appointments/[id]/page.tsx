@@ -211,7 +211,7 @@ export default function AppointmentDetailsPage() {
         </div>
 
         <div>
-          <label className="text-sm text-gray-500 block">Fecha y Hora</label>
+          <label className="text-sm text-gray-500 block">Fecha</label>
           {isEditing ? (
             <input
               type="datetime-local"
@@ -222,7 +222,15 @@ export default function AppointmentDetailsPage() {
               required
             />
           ) : (
-            <div className="text-lg text-gray-900">{new Date(appointment.appointmentDate).toLocaleString()}</div>
+            <div className="text-lg text-gray-900">
+              {(() => {
+                const date = new Date(appointment.appointmentDate);
+                const day = String(date.getUTCDate()).padStart(2, '0');
+                const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                const year = date.getUTCFullYear();
+                return `${day}/${month}/${year}`;
+              })()}
+            </div>
           )}
         </div>
 
@@ -313,7 +321,13 @@ export default function AppointmentDetailsPage() {
               Confirmar Eliminación
             </h3>
             <p className="text-gray-600 mb-6">
-              ¿Estás seguro de que deseas eliminar el turno de "{appointment.clientName}" del {new Date(appointment.appointmentDate).toLocaleString()}? 
+              ¿Estás seguro de que deseas eliminar el turno de "{appointment.clientName}" del {(() => {
+                const date = new Date(appointment.appointmentDate);
+                const day = String(date.getUTCDate()).padStart(2, '0');
+                const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                const year = date.getUTCFullYear();
+                return `${day}/${month}/${year}`;
+              })()}? 
               Esta acción no se puede deshacer.
             </p>
             <div className="flex gap-3 justify-end">
