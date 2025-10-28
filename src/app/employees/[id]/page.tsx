@@ -51,6 +51,19 @@ export default function EmployeeDetailsPage() {
         <div><div className="text-sm text-gray-500">Estado</div><div className="text-lg text-gray-900">{employee.status}</div></div>
         <div><div className="text-sm text-gray-500">Nivel</div><div className="text-lg text-gray-900">{employee.level || 'N/D'}</div></div>
         <div><div className="text-sm text-gray-500">Teléfono</div><div className="text-lg text-gray-900">{employee.phoneNumber || 'N/D'}</div></div>
+        <div><div className="text-sm text-gray-500">Dirección</div><div className="text-lg text-gray-900">{employee.address || 'N/D'}</div></div>
+        <div>
+          <div className="text-sm text-gray-500">Fecha de Nacimiento</div>
+          <div className="text-lg text-gray-900">
+            {employee.dateOfBirth ? (() => {
+              const date = new Date(employee.dateOfBirth);
+              const day = String(date.getUTCDate()).padStart(2, '0');
+              const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+              const year = date.getUTCFullYear();
+              return `${day}/${month}/${year}`;
+            })() : 'N/D'}
+          </div>
+        </div>
         <div><div className="text-sm text-gray-500">Creado</div><div className="text-lg text-gray-900">{new Date(employee.createdAt).toLocaleString()}</div></div>
         <div><div className="text-sm text-gray-500">Actualizado</div><div className="text-lg text-gray-900">{new Date(employee.updatedAt).toLocaleString()}</div></div>
       </div>
