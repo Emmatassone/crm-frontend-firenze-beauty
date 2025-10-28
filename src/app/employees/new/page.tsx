@@ -59,7 +59,6 @@ export default function NewEmployeePage() {
         isLoading={isLoading} 
         defaultValues={{ 
           status: 'active',
-          dateOfBirth: new Date().toISOString(),
         }} 
       />
     </div>
