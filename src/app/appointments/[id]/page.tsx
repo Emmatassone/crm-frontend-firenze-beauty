@@ -81,9 +81,36 @@ export default function AppointmentDetailsPage() {
   };
 
   const handleInputChange = (field: keyof UpdateAppointmentDto, value: string) => {
+    setEditForm(prev => {
+      const updated = {
+        ...prev,
+        [field]: value === '' ? undefined : value
+      };
+
+      // Sync discounts when services change
+      if (field === 'serviceConsumed' && value) {
+        const servicesArray = value.split(',').filter((s: string) => s.trim());
+        const currentDiscounts = prev.usedDiscount || '';
+        const discountsArray = currentDiscounts.split(',').filter((d: string) => d.trim());
+        
+        // Ensure discounts match services length
+        const newDiscounts = servicesArray.map((_, index) => 
+          discountsArray[index] || '0'
+        );
+        updated.usedDiscount = newDiscounts.join(',');
+      }
+
+      return updated;
+    });
+  };
+
+  const handleDiscountChange = (index: number, value: string) => {
+    const currentDiscounts = editForm.usedDiscount || '';
+    const discountsArray = currentDiscounts.split(',').filter((d: string) => d.trim());
+    discountsArray[index] = value;
     setEditForm(prev => ({
       ...prev,
-      [field]: value === '' ? undefined : value
+      usedDiscount: discountsArray.join(',')
     }));
   };
 
@@ -283,14 +310,46 @@ export default function AppointmentDetailsPage() {
         <div>
           <label className="text-sm text-gray-500 block">Descuento Aplicado</label>
           {isEditing ? (
-            <input
-              type="text"
-              value={editForm.usedDiscount || ''}
-              onChange={(e) => handleInputChange('usedDiscount', e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-              disabled={isSaving}
-              placeholder="N/D"
-            />
+            (() => {
+              const servicesArray = editForm.serviceConsumed ? editForm.serviceConsumed.split(',').filter((s: string) => s.trim()) : [];
+              const discountsArray = editForm.usedDiscount ? editForm.usedDiscount.split(',').filter((d: string) => d.trim()) : [];
+              
+              // Ensure discounts array matches services length
+              while (discountsArray.length < servicesArray.length) {
+                discountsArray.push('0');
+              }
+              while (discountsArray.length > servicesArray.length) {
+                discountsArray.pop();
+              }
+
+              if (servicesArray.length === 0) {
+                return (
+                  <p className="mt-1 text-sm text-gray-500 italic">
+                    Primero agregue servicios para establecer descuentos
+                  </p>
+                );
+              }
+
+              return (
+                <div className="space-y-2 mt-2">
+                  {servicesArray.map((service, index) => (
+                    <div key={index} className="flex items-center space-x-3 bg-gray-50 p-2 rounded-md">
+                      <span className="flex-1 text-sm text-gray-700 font-medium">{service}</span>
+                      <select
+                        value={discountsArray[index] || '0'}
+                        onChange={(e) => handleDiscountChange(index, e.target.value)}
+                        className="px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-sm"
+                        disabled={isSaving}
+                      >
+                        {Array.from({ length: 21 }, (_, i) => i * 5).map(value => (
+                          <option key={value} value={value.toString()}>{value}%</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()
           ) : (
             <div className="text-lg text-gray-900">{appointment.usedDiscount || 'N/D'}</div>
           )}

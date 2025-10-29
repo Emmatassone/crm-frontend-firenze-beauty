@@ -91,6 +91,7 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
   });
 
   const selectedClientId = watch('clientId');
+  const serviceConsumed = watch('serviceConsumed');
 
   useEffect(() => {
     if (selectedClientId) {
@@ -102,6 +103,25 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
       setValue('clientName', ''); // Clear if no client is selected
     }
   }, [selectedClientId, clients, setValue]);
+
+  // Sync discounts with services
+  useEffect(() => {
+    if (serviceConsumed) {
+      const servicesArray = serviceConsumed.split(',').filter(s => s.trim());
+      const currentDiscounts = watch('usedDiscount');
+      const discountsArray = currentDiscounts ? currentDiscounts.split(',').filter(d => d.trim()) : [];
+      
+      // Adjust discounts array to match services length
+      if (servicesArray.length !== discountsArray.length) {
+        const newDiscounts = servicesArray.map((_, index) => 
+          discountsArray[index] || '0'
+        );
+        setValue('usedDiscount', newDiscounts.join(','));
+      }
+    } else {
+      setValue('usedDiscount', '');
+    }
+  }, [serviceConsumed, setValue]);
 
   const inputStyle = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm";
   const labelStyle = "block text-sm font-medium text-gray-700";
@@ -190,15 +210,51 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
           <Controller
               name="usedDiscount"
               control={control}
-              render={({ field }) => (
-                  <Select
-                      isMulti
-                      options={Array.from({ length: 21 }, (_, i) => i * 5).map(value => ({ value: value.toString(), label: `${value}%` }))}
-                      onChange={options => field.onChange(options.map(option => option.value).join(','))}
-                      value={field.value ? field.value.split(',').map(item => ({ value: item, label: `${item}%` })) : []}
-                      placeholder="Seleccione descuentos"
-                  />
-              )}
+              render={({ field }) => {
+                const servicesArray = serviceConsumed ? serviceConsumed.split(',').filter(s => s.trim()) : [];
+                const discountsArray = field.value ? field.value.split(',').filter(d => d.trim()) : [];
+                
+                // Ensure discounts array matches services length
+                while (discountsArray.length < servicesArray.length) {
+                  discountsArray.push('0');
+                }
+                while (discountsArray.length > servicesArray.length) {
+                  discountsArray.pop();
+                }
+
+                const handleDiscountChange = (index: number, value: string) => {
+                  const newDiscounts = [...discountsArray];
+                  newDiscounts[index] = value;
+                  field.onChange(newDiscounts.join(','));
+                };
+
+                if (servicesArray.length === 0) {
+                  return (
+                    <p className="mt-1 text-sm text-gray-500 italic">
+                      Primero seleccione los servicios para agregar descuentos
+                    </p>
+                  );
+                }
+
+                return (
+                  <div className="space-y-2 mt-2">
+                    {servicesArray.map((service, index) => (
+                      <div key={index} className="flex items-center space-x-3 bg-gray-50 p-3 rounded-md">
+                        <span className="flex-1 text-sm text-gray-700 font-medium">{service}</span>
+                        <select
+                          value={discountsArray[index] || '0'}
+                          onChange={(e) => handleDiscountChange(index, e.target.value)}
+                          className="px-3 py-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-sm"
+                        >
+                          {Array.from({ length: 21 }, (_, i) => i * 5).map(value => (
+                            <option key={value} value={value.toString()}>{value}%</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }}
           />
           {errors.usedDiscount && <p className={errorStyle}>{errors.usedDiscount.message}</p>}
         </div>
