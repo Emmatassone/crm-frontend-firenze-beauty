@@ -33,6 +33,7 @@ interface SaleFormProps {
 export default function SaleForm({ onSubmit, isLoading, defaultValues, isEdit = false }: SaleFormProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<ClientProfile[]>([]);
+  const [priceNotDefined, setPriceNotDefined] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -79,9 +80,17 @@ export default function SaleForm({ onSubmit, isLoading, defaultValues, isEdit = 
   useEffect(() => {
     if (selectedProductId) {
       const selectedProduct = products.find(p => p.id === selectedProductId);
-      if (selectedProduct && selectedProduct.sellingPrice !== undefined) {
-        setValue('sellingPricePerUnit', selectedProduct.sellingPrice.toString());
+      if (selectedProduct) {
+        if (selectedProduct.sellingPrice !== undefined && selectedProduct.sellingPrice !== null) {
+          setValue('sellingPricePerUnit', selectedProduct.sellingPrice.toString());
+          setPriceNotDefined(false);
+        } else {
+          setValue('sellingPricePerUnit', '');
+          setPriceNotDefined(true);
+        }
       }
+    } else {
+      setPriceNotDefined(false);
     }
   }, [selectedProductId, products, setValue]);
 
@@ -152,7 +161,13 @@ export default function SaleForm({ onSubmit, isLoading, defaultValues, isEdit = 
             <label htmlFor="sellingPricePerUnit" className={labelStyle}>
                 Precio de Venta por Unidad <span className="text-xs text-gray-500">(calculado automáticamente)</span>
             </label>
-            <input id="sellingPricePerUnit" type="number" step="0.01" {...register('sellingPricePerUnit')} className={readOnlyInputStyle} readOnly />
+            {priceNotDefined ? (
+                <div className="mt-1 block w-full px-3 py-2 bg-yellow-50 border border-yellow-300 rounded-md shadow-sm text-yellow-800 sm:text-sm">
+                    Precio del producto no definido
+                </div>
+            ) : (
+                <input id="sellingPricePerUnit" type="number" step="0.01" {...register('sellingPricePerUnit')} className={readOnlyInputStyle} readOnly />
+            )}
             {errors.sellingPricePerUnit && <p className={errorStyle}>{errors.sellingPricePerUnit.message}</p>}
         </div>
 
@@ -175,14 +190,20 @@ export default function SaleForm({ onSubmit, isLoading, defaultValues, isEdit = 
             <label htmlFor="finalAmount" className="block text-lg font-bold text-gray-900">
                 Monto Final <span className="text-sm text-gray-500 font-normal">(calculado automáticamente)</span>
             </label>
-            <input 
-                id="finalAmount" 
-                type="number" 
-                step="0.01" 
-                {...register('finalAmount')} 
-                className="mt-2 block w-full px-4 py-3 bg-green-50 border-2 border-green-500 rounded-md shadow-sm text-green-900 font-bold text-xl cursor-not-allowed" 
-                readOnly 
-            />
+            {priceNotDefined ? (
+                <div className="mt-2 block w-full px-4 py-3 bg-yellow-50 border-2 border-yellow-300 rounded-md shadow-sm text-yellow-800 font-bold text-xl">
+                    Precio del producto no definido
+                </div>
+            ) : (
+                <input 
+                    id="finalAmount" 
+                    type="number" 
+                    step="0.01" 
+                    {...register('finalAmount')} 
+                    className="mt-2 block w-full px-4 py-3 bg-green-50 border-2 border-green-500 rounded-md shadow-sm text-green-900 font-bold text-xl cursor-not-allowed" 
+                    readOnly 
+                />
+            )}
             {errors.finalAmount && <p className={errorStyle}>{errors.finalAmount.message}</p>}
         </div>
 
