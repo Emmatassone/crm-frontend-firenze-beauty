@@ -256,7 +256,7 @@ export default function ClientDetailsPage() {
         </div>
 
         <div>
-          <label className="text-sm text-gray-500 block">Detalles de Pestañas</label>
+          <label className="text-sm text-gray-500 block">Detalles de Pestañas y Cejas</label>
           {isEditing ? (
             <textarea
               value={editForm.eyelashDetails || ''}

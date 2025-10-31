@@ -19,9 +19,18 @@ const formatDateTime = (isoString?: string) => {
   } catch (e) { return 'Fecha Inválida'; }
 };
 
-const formatCurrency = (amount?: number) => {
-  if (typeof amount !== 'number') return 'N/D';
-  return `$${amount.toFixed(2)}`; // Basic currency format
+const formatCurrency = (amount?: number | string) => {
+  if (amount === null || amount === undefined) return 'N/D';
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (isNaN(numAmount)) return 'N/D';
+  return `$${numAmount.toFixed(2)}`; // Basic currency format
+};
+
+const formatDiscount = (discount?: string) => {
+  if (!discount) return naDisplay;
+  const numValue = parseFloat(discount);
+  if (isNaN(numValue)) return discount; // Return as-is if not a number
+  return `${numValue}%`;
 };
 
 export default function SaleList({ initialSales }: SaleListProps) {
@@ -67,8 +76,8 @@ export default function SaleList({ initialSales }: SaleListProps) {
                 <th scope="col" className={thStyle}>Precio Unit.</th>
                 {/* <th scope="col" className={thStyle}>Total Bruto</th> */}
                 <th scope="col" className={thStyle}>Descuento</th>
-                <th scope="col" className={thStyle}>Total Final</th>
-                <th scope="col" className={thStyle}>Vendedor</th>
+                <th scope="col" className={thStyle}>Total</th>
+                <th scope="col" className={thStyle}>Cliente</th>
                 <th scope="col" className={thStyle}>Acciones</th>
               </tr>
             </thead>
@@ -81,9 +90,9 @@ export default function SaleList({ initialSales }: SaleListProps) {
                   <td className={tdStyle}>{sale.quantitySold}</td>
                   <td className={tdStyle}>{formatCurrency(sale.sellingPricePerUnit)}</td>
                   {/* <td className={tdStyle}>{formatCurrency(sale.totalSaleAmount)}</td> */}
-                  <td className={tdStyle}>{sale.discountApplied || naDisplay}</td>
+                  <td className={tdStyle}>{formatDiscount(sale.discountApplied)}</td>
                   <td className={`${tdStyle} font-semibold`}>{formatCurrency(sale.finalAmount)}</td>
-                  <td className={tdStyle}>{sale.sellerEmployee?.name || naDisplay}</td>
+                  <td className={tdStyle}>{sale.clientName || naDisplay}</td>
                   <td className={`${tdStyle} text-right`}>
                     <Link href={`/sales/${sale.id}`} className="text-pink-600 hover:text-pink-800 font-medium">
                       Ver Detalles

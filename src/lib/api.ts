@@ -184,6 +184,9 @@ export interface ProductSale {
   sku?: string;
   productId: string;
   product?: Product; // Relation
+  clientName?: string;
+  clientId?: string;
+  client?: ClientProfile; // Relation
   dateTime: string; // ISO string
   quantitySold: number;
   sellingPricePerUnit: number;
@@ -201,6 +204,7 @@ export interface ProductSale {
 // totalSaleAmount and finalAmount are also calculated by backend or validated if sent.
 export interface CreateProductSaleDto {
   productId: string;
+  clientId?: string;
   dateTime?: string; // Optional, defaults to now on backend
   quantitySold: number;
   sellingPricePerUnit: number; // Price at time of sale

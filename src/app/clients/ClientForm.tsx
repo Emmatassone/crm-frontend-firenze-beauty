@@ -136,7 +136,7 @@ export default function ClientForm({ onSubmit, isLoading, defaultValues, isEdit 
       </div>
 
       <div>
-        <label htmlFor="eyelashDetails" className={labelStyle}>Detalles de Pestañas</label>
+        <label htmlFor="eyelashDetails" className={labelStyle}>Detalles de Pestañas y Cejas</label>
         <textarea id="eyelashDetails" {...register('eyelashDetails')} className={`${textareaStyle} ${errors.eyelashDetails ? 'border-red-500' : ''}`} />
         {errors.eyelashDetails && <p className={errorStyle}>{errors.eyelashDetails.message}</p>}
       </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SubmitHandler } from 'react-hook-form';
-import { createProductSale, CreateProductSaleDto, getProducts, Product, getEmployees, Employee } from '@/lib/api';
+import { createProductSale, CreateProductSaleDto } from '@/lib/api';
 import SaleForm, { SaleFormValues } from '../SaleForm';
 
 export default function NewSalePage() {
@@ -18,13 +18,12 @@ export default function NewSalePage() {
     try {
       const payload: CreateProductSaleDto = {
         productId: data.productId,
+        clientId: data.clientId === '' ? undefined : data.clientId,
         quantitySold: Number(data.quantitySold),
         sellingPricePerUnit: Number(data.sellingPricePerUnit),
         totalSaleAmount: Number(data.totalSaleAmount),
         finalAmount: Number(data.finalAmount),
         discountApplied: data.discountApplied === '' ? undefined : data.discountApplied,
-        sellerEmployeeId: data.sellerEmployeeId === '' ? undefined : data.sellerEmployeeId,
-        comment: data.comment === '' ? undefined : data.comment,
         dateTime: data.dateTime ? data.dateTime.split('-').reverse().join('-') : new Date().toISOString(),
       };
       
