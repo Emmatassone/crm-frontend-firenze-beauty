@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getProducts, Product } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
 import ProductList from './ProductList';
 
 function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { canManageProducts } = useAuthStore();
 
   useEffect(() => {
     async function fetchProducts() {
@@ -40,9 +42,11 @@ function ProductsPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Productos</h1>
-        <Link href="/products/new" className="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">
-          Agregar Producto
-        </Link>
+        {canManageProducts && (
+          <Link href="/products/new" className="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">
+            Agregar Producto
+          </Link>
+        )}
       </div>
 
       {error && (

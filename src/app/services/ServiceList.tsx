@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import type { Service } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
 
 interface ServiceListProps {
   initialServices: Service[];
@@ -30,6 +31,7 @@ const AREA_ICONS: Record<string, string> = {
 
 export default function ServiceList({ initialServices }: ServiceListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const { canManageProducts } = useAuthStore();
 
   // Filter services based on search term
   const filteredServices = useMemo(() => {
@@ -146,12 +148,16 @@ export default function ServiceList({ initialServices }: ServiceListProps) {
                         {service.duration ? `${service.duration} min` : <span className="text-gray-400">-</span>}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
-                        <Link 
-                          href={`/services/${service.id}`} 
-                          className="text-pink-600 hover:text-pink-800 font-medium"
-                        >
-                          Ver Detalles
-                        </Link>
+                        {canManageProducts ? (
+                          <Link 
+                            href={`/services/${service.id}`} 
+                            className="text-pink-600 hover:text-pink-800 font-medium"
+                          >
+                            Ver Detalles
+                          </Link>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
                     </tr>
                   ))}

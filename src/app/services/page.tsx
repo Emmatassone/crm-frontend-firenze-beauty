@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getServices, Service } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
 import ServiceList from './ServiceList';
 
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { canManageProducts } = useAuthStore();
 
   useEffect(() => {
     async function fetchServices() {
@@ -42,9 +44,11 @@ export default function ServicesPage() {
         <h1 className="text-3xl font-bold text-gray-800">
           Gestión de Servicios
         </h1>
-        <Link href="/services/new" className="px-4 py-2 bg-pink-600 text-white font-semibold rounded-lg shadow-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-opacity-75">
-          Agregar Nuevo Servicio
-        </Link>
+        {canManageProducts && (
+          <Link href="/services/new" className="px-4 py-2 bg-pink-600 text-white font-semibold rounded-lg shadow-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-opacity-75">
+            Agregar Nuevo Servicio
+          </Link>
+        )}
       </div>
 
       {error && (

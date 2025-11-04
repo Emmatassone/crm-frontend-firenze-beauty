@@ -11,8 +11,8 @@ export default function Navigation() {
 
   const navLinks = [
     ...(isAdmin ? [{ href: '/employees', label: 'Empleados' }] : []),
-    ...(isAdmin ? [{ href: '/products', label: 'Productos' }] : []),
-    ...(isAdmin ? [{ href: '/services', label: 'Servicios' }] : []),
+    { href: '/products', label: 'Productos' },
+    { href: '/services', label: 'Servicios' },
     { href: '/clients', label: 'Clientes' },
     { href: '/appointments', label: 'Citas' },
     { href: '/sales', label: 'Ventas' },

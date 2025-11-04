@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import type { Product } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
 
 interface ProductListProps {
   initialProducts: Product[];
@@ -18,6 +19,7 @@ const formatPrice = (price?: number) => {
 
 export default function ProductList({ initialProducts }: ProductListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const { canManageProducts } = useAuthStore();
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return initialProducts;
@@ -72,9 +74,13 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                   <td className={`${tdStyle} ${product.currentStock && product.currentStock > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}`}>{product.currentStock ?? 0}</td>
                   <td className={tdStyle}>{formatPrice(product.sellingPrice)}</td>
                   <td className={`${tdStyle} text-right`}>
-                    <Link href={`/products/${product.id}`} className="text-pink-600 hover:text-pink-800 font-medium">
-                      Ver Detalles
-                    </Link>
+                    {canManageProducts ? (
+                      <Link href={`/products/${product.id}`} className="text-pink-600 hover:text-pink-800 font-medium">
+                        Ver Detalles
+                      </Link>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
                   </td>
                 </tr>
               ))}

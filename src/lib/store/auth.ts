@@ -7,6 +7,7 @@ interface AuthState {
   email: string | null;
   level: string | null;
   isAdmin: boolean;
+  canManageProducts: boolean;
   login: (token: string) => void;
   logout: () => void;
   isTokenValid: () => boolean;
@@ -31,20 +32,22 @@ export const useAuthStore = create<AuthState>(
       email: null,
       level: null,
       isAdmin: false,
+      canManageProducts: false,
       login: (token: string) => {
         try {
           const decoded = jwtDecode<JwtPayload>(token);
           const { email, level } = decoded;
           const isAdmin = level === '5' || level === '6';
-          set({ token, email, level: level || null, isAdmin });
+          const canManageProducts = level === '4' || level === '5' || level === '6';
+          set({ token, email, level: level || null, isAdmin, canManageProducts });
         } catch (error) {
           console.error('Failed to decode JWT token:', error);
           // Reset auth state on invalid token
-          set({ token: null, email: null, level: null, isAdmin: false });
+          set({ token: null, email: null, level: null, isAdmin: false, canManageProducts: false });
         }
       },
       logout: () => {
-        set({ token: null, email: null, level: null, isAdmin: false });
+        set({ token: null, email: null, level: null, isAdmin: false, canManageProducts: false });
       },
       isTokenValid: () => {
         const { token } = get();
