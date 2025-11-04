@@ -60,6 +60,11 @@ export default function ServiceList({ initialServices }: ServiceListProps) {
       groups[area].push(service);
     });
 
+    // Sort services alphabetically within each group
+    Object.keys(groups).forEach(area => {
+      groups[area].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+    });
+
     // Filter out empty groups
     return Object.entries(groups).filter(([_, services]) => services.length > 0);
   }, [filteredServices]);
