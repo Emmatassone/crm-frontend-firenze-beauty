@@ -31,6 +31,7 @@ export default function ServiceDetailsPage() {
           name: data.name,
           abbreviation: data.abbreviation,
           description: data.description,
+          area: data.area,
           price: data.price,
           duration: data.duration,
         });
@@ -72,6 +73,7 @@ export default function ServiceDetailsPage() {
         name: service.name,
         abbreviation: service.abbreviation,
         description: service.description,
+        area: service.area,
         price: service.price,
         duration: service.duration,
       });
@@ -80,7 +82,7 @@ export default function ServiceDetailsPage() {
     setError(null);
   };
 
-  const handleInputChange = (field: keyof UpdateServiceDto, value: string | number) => {
+  const handleInputChange = (field: keyof UpdateServiceDto, value: string | number | undefined) => {
     setEditForm(prev => ({
       ...prev,
       [field]: value === '' ? undefined : value
@@ -234,6 +236,28 @@ export default function ServiceDetailsPage() {
             />
           ) : (
             <div className="text-lg text-gray-900">{service.description || 'N/D'}</div>
+          )}
+        </div>
+
+        <div>
+          <label className="text-sm text-gray-500 block">Área del Servicio</label>
+          {isEditing ? (
+            <select
+              value={editForm.area || ''}
+              onChange={(e) => handleInputChange('area', e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+              disabled={isSaving}
+            >
+              <option value="">Seleccionar área...</option>
+              <option value="Uñas">Uñas</option>
+              <option value="Cejas y Pestañas">Cejas y Pestañas</option>
+              <option value="Peluquería">Peluquería</option>
+              <option value="Maquillaje">Maquillaje</option>
+              <option value="Cosmetología">Cosmetología</option>
+              <option value="Labios">Labios</option>
+            </select>
+          ) : (
+            <div className="text-lg text-gray-900">{service.area || 'N/D'}</div>
           )}
         </div>
 

@@ -59,8 +59,13 @@ export default function EmployeeList({ initialEmployees }: EmployeeListProps) {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredEmployees.map((employee) => (
-                <tr key={employee.id} className="hover:bg-gray-50 transition duration-150 ease-in-out">
+              {filteredEmployees.map((employee, index) => (
+                <tr 
+                  key={employee.id} 
+                  className={`hover:bg-pink-50 transition duration-150 ease-in-out ${
+                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                  }`}
+                >
                   <td className={tdStyle}>{employee.name}</td>
                   <td className={tdStyle}>{employee.email}</td>
                   <td className={tdStyle}>{employee.jobTitle}</td>

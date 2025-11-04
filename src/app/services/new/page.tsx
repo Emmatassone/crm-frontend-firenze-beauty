@@ -20,6 +20,7 @@ export default function NewServicePage() {
         name: data.name,
         abbreviation: data.abbreviation,
         description: data.description,
+        area: data.area,
         price: Number(data.price),
         duration: data.duration ? Number(data.duration) : undefined,
       };

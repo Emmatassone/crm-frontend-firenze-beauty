@@ -60,8 +60,13 @@ export default function ProductList({ initialProducts }: ProductListProps) {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50 transition">
+              {filteredProducts.map((product, index) => (
+                <tr 
+                  key={product.id} 
+                  className={`hover:bg-pink-50 transition ${
+                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                  }`}
+                >
                   <td className={tdStyle}>{product.productName}</td>
                   <td className={tdStyle}>{product.model || 'N/D'}</td>
                   <td className={`${tdStyle} ${product.currentStock && product.currentStock > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}`}>{product.currentStock ?? 0}</td>

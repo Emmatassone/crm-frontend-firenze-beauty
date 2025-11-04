@@ -136,13 +136,14 @@ export interface Service {
   name: string;
   abbreviation?: string;
   description?: string;
+  area?: string;
   price: number;
   duration?: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export type CreateServiceDto = Omit<Service, 'id' | 'createdAt' | 'updatedAt'> & { abbreviation?: string };
+export type CreateServiceDto = Omit<Service, 'id' | 'createdAt' | 'updatedAt'> & { abbreviation?: string; area?: string };
 export type UpdateServiceDto = Partial<CreateServiceDto>;
 
 // --- Service API Functions ---

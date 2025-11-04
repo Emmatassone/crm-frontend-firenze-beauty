@@ -82,8 +82,13 @@ export default function SaleList({ initialSales }: SaleListProps) {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredSales.map((sale) => (
-                <tr key={sale.id} className="hover:bg-gray-50 transition duration-150 ease-in-out">
+              {filteredSales.map((sale, index) => (
+                <tr 
+                  key={sale.id} 
+                  className={`hover:bg-pink-50 transition duration-150 ease-in-out ${
+                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                  }`}
+                >
                   <td className={tdStyle}>{sale.productName}</td>
                   <td className={tdStyle}>{sale.sku || naDisplay}</td>
                   <td className={tdStyle}>{formatDateTime(sale.dateTime)}</td>

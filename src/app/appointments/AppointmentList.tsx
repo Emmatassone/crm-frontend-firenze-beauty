@@ -72,8 +72,13 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredAppointments.map((appt) => (
-                <tr key={appt.id} className="hover:bg-gray-50 transition">
+              {filteredAppointments.map((appt, index) => (
+                <tr 
+                  key={appt.id} 
+                  className={`hover:bg-pink-50 transition ${
+                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                  }`}
+                >
                   <td className={tdStyle}>{appt.clientName || appt.client?.name || appt.client?.phoneNumber || 'N/D'}</td>
                   <td className={tdStyle}>{appt.serviceConsumed}</td>
                   <td className={tdStyle}>{formatDateTime(appt.appointmentDate)}</td>

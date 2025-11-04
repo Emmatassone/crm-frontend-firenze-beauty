@@ -58,8 +58,13 @@ export default function ClientList({ initialClients }: ClientListProps) {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredClients.map((client) => (
-                <tr key={client.id} className="hover:bg-gray-50 transition duration-150 ease-in-out">
+              {filteredClients.map((client, index) => (
+                <tr 
+                  key={client.id} 
+                  className={`hover:bg-pink-50 transition duration-150 ease-in-out ${
+                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                  }`}
+                >
                   <td className={tdStyle}>{client.name || naDisplay}</td>
                   <td className={tdStyle}>{client.phoneNumber}</td>
                   <td className={tdStyle}>{client.email || naDisplay}</td>
