@@ -12,14 +12,16 @@ interface ProductListProps {
 const thStyle = "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider";
 const tdStyle = "px-6 py-4 whitespace-nowrap text-sm text-gray-700";
 
-const formatPrice = (price?: number) => {
-  if (typeof price !== 'number') return 'N/D';
-  return `$${price.toFixed(2)}`; // Consider localizing currency later if needed
+const formatPrice = (price?: number | string) => {
+  if (price === null || price === undefined) return 'N/D';
+  const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+  if (isNaN(numPrice)) return 'N/D';
+  return `$${numPrice.toFixed(2)}`;
 };
 
 export default function ProductList({ initialProducts }: ProductListProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const { canManageProducts } = useAuthStore();
+  const { canManageProducts, isAdmin } = useAuthStore();
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return initialProducts;
@@ -57,6 +59,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                 <th scope="col" className={thStyle}>Nombre del Producto</th>
                 <th scope="col" className={thStyle}>Modelo</th>
                 <th scope="col" className={thStyle}>Existencias</th>
+                {isAdmin && <th scope="col" className={thStyle}>Precio de Compra</th>}
                 <th scope="col" className={thStyle}>Precio de Venta</th>
                 <th scope="col" className={thStyle}>Acciones</th>
               </tr>
@@ -72,6 +75,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                   <td className={tdStyle}>{product.productName}</td>
                   <td className={tdStyle}>{product.model || 'N/D'}</td>
                   <td className={`${tdStyle} ${product.currentStock && product.currentStock > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}`}>{product.currentStock ?? 0}</td>
+                  {isAdmin && <td className={tdStyle}>{formatPrice(product.purchasePrice)}</td>}
                   <td className={tdStyle}>{formatPrice(product.sellingPrice)}</td>
                   <td className={`${tdStyle} text-right`}>
                     {canManageProducts ? (

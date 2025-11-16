@@ -14,7 +14,7 @@ const productSchema = z.object({
   sellingPrice: z.string().optional(),
   lastRestockDate: z.string().optional().refine(val => {
     if (!val || val.trim() === '') return true;
-    return /^d{2}-d{2}-d{4}$/.test(val);
+    return /^\d{2}-\d{2}-\d{4}$/.test(val);
   }, { message: 'La fecha debe ser DD-MM-AAAA' }),
 });
 

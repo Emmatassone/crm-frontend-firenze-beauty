@@ -60,17 +60,21 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
       )}
 
       {filteredAppointments.length > 0 && (
-        <div className="shadow-xl rounded-lg overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 bg-white">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className={thStyle}>Cliente</th>
-                <th scope="col" className={thStyle}>Servicio</th>
-                <th scope="col" className={thStyle}>Fecha</th>
-                <th scope="col" className={thStyle}>Empleado</th>
-                <th scope="col" className={thStyle}>Acciones</th>
-              </tr>
-            </thead>
+        <div className="shadow-xl rounded-lg">
+          <div className="overflow-x-auto sticky top-0 z-10 h-0">
+            <div className="h-4"></div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 bg-white">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className={thStyle}>Cliente</th>
+                  <th scope="col" className={thStyle}>Servicio</th>
+                  <th scope="col" className={thStyle}>Fecha</th>
+                  <th scope="col" className={thStyle}>Empleado</th>
+                  <th scope="col" className={thStyle}>Acciones</th>
+                </tr>
+              </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredAppointments.map((appt, index) => (
                 <tr 
@@ -92,6 +96,7 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
