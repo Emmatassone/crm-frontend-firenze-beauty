@@ -8,13 +8,13 @@ import { ClientProfile } from '@/lib/api';
 
 const clientSchema = z.object({
   name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres').max(100, 'El nombre no puede exceder los 100 caracteres').optional().or(z.literal('')),
-  countryCode: z.string().min(1, 'El código de país es requerido').refine(val => /^\+\d{1,4}$/.test(val), { 
+  countryCode: z.string().min(1, 'El código de país es requerido').refine(val => /^\+\d{1,4}$/.test(val), {
     message: 'El código de país debe comenzar con + y contener 1-4 dígitos'
   }),
-  phoneNumber: z.string().min(1, 'El número de teléfono es requerido').refine(val => /^\d{6,14}$/.test(val), { 
+  phoneNumber: z.string().min(1, 'El número de teléfono es requerido').refine(val => /^\d{6,14}$/.test(val), {
     message: 'El número de teléfono debe contener entre 6 y 14 dígitos'
   }),
-  email: z.string().min(1, 'El correo electrónico es requerido').email('Debe ser un correo electrónico válido'),
+  email: z.string().email('Debe ser un correo electrónico válido').optional().or(z.literal('')),
   dateOfBirth: z.string().optional().refine(val => {
     if (!val || val.trim() === '') return true;
     return /^\d{2}-\d{2}-\d{4}$/.test(val);
@@ -69,11 +69,11 @@ export default function ClientForm({ onSubmit, isLoading, defaultValues, isEdit 
         }
       })() : '',
       dateOfBirth: defaultValues?.dateOfBirth ? (() => {
-          const date = new Date(defaultValues.dateOfBirth);
-          const day = String(date.getUTCDate()).padStart(2, '0');
-          const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-          const year = date.getUTCFullYear();
-          return `${day}-${month}-${year}`;
+        const date = new Date(defaultValues.dateOfBirth);
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const year = date.getUTCFullYear();
+        return `${day}-${month}-${year}`;
       })() : '',
     },
   });
@@ -95,21 +95,21 @@ export default function ClientForm({ onSubmit, isLoading, defaultValues, isEdit 
         <label htmlFor="phoneNumber" className={labelStyle}>Teléfono <span className="text-red-500">*</span></label>
         <div className="flex gap-2">
           <div className="w-28">
-            <input 
-              id="countryCode" 
-              type="text" 
+            <input
+              id="countryCode"
+              type="text"
               placeholder="+54"
-              {...register('countryCode')} 
-              className={`${inputStyle} ${errors.countryCode ? 'border-red-500' : ''}`} 
+              {...register('countryCode')}
+              className={`${inputStyle} ${errors.countryCode ? 'border-red-500' : ''}`}
             />
           </div>
           <div className="flex-1">
-            <input 
-              id="phoneNumber" 
-              type="tel" 
+            <input
+              id="phoneNumber"
+              type="tel"
               placeholder="2215661377"
-              {...register('phoneNumber')} 
-              className={`${inputStyle} ${errors.phoneNumber ? 'border-red-500' : ''}`} 
+              {...register('phoneNumber')}
+              className={`${inputStyle} ${errors.phoneNumber ? 'border-red-500' : ''}`}
             />
           </div>
         </div>
@@ -118,7 +118,7 @@ export default function ClientForm({ onSubmit, isLoading, defaultValues, isEdit 
       </div>
 
       <div>
-        <label htmlFor="email" className={labelStyle}>Correo Electrónico <span className="text-red-500">*</span></label>
+        <label htmlFor="email" className={labelStyle}>Correo Electrónico</label>
         <input id="email" type="email" {...register('email')} className={`${inputStyle} ${errors.email ? 'border-red-500' : ''}`} />
         {errors.email && <p className={errorStyle}>{errors.email.message}</p>}
       </div>
@@ -152,7 +152,7 @@ export default function ClientForm({ onSubmit, isLoading, defaultValues, isEdit 
         <textarea id="clientAllergies" {...register('clientAllergies')} className={`${textareaStyle} ${errors.clientAllergies ? 'border-red-500' : ''}`} />
         {errors.clientAllergies && <p className={errorStyle}>{errors.clientAllergies.message}</p>}
       </div>
-      
+
       <div className="flex items-center justify-end space-x-4">
         <Link href="/clients" className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
           Cancelar
