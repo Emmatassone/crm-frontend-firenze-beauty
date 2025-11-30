@@ -39,8 +39,10 @@ export default function NewAppointmentPage() {
         arrivalTime: data.arrivalTime,
         leaveTime: data.leaveTime,
         serviceConsumed: data.serviceConsumed,
+        serviceQuantities: data.serviceQuantities,
         usedDiscount: data.usedDiscount,
         additionalComments: data.additionalComments,
+        totalAmount: data.totalAmount,
       };
       const newAppointment = await createAppointment(payload);
       router.push(`/appointments/${newAppointment.id}`);

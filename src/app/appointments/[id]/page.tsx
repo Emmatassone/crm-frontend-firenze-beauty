@@ -273,7 +273,23 @@ export default function AppointmentDetailsPage() {
               required
             />
           ) : (
-            <div className="text-lg text-gray-900">{appointment.serviceConsumed}</div>
+            <div className="text-lg text-gray-900">
+              {(() => {
+                const servicesArray = appointment.serviceConsumed ? appointment.serviceConsumed.split(',').filter(s => s.trim()) : [];
+                const quantitiesArray = appointment.serviceQuantities ? appointment.serviceQuantities.split(',').filter(q => q.trim()) : [];
+                
+                return servicesArray.map((service, index) => {
+                  const quantity = parseInt(quantitiesArray[index]) || 1;
+                  return (
+                    <span key={index}>
+                      {index > 0 && ', '}
+                      {service.trim()}
+                      {quantity > 1 && <span className="text-pink-500 font-medium"> ×{quantity}</span>}
+                    </span>
+                  );
+                });
+              })()}
+            </div>
           )}
         </div>
 
@@ -369,6 +385,15 @@ export default function AppointmentDetailsPage() {
           ) : (
             <div className="text-lg text-gray-900">{appointment.additionalComments || 'N/D'}</div>
           )}
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="text-sm text-gray-500 block">Precio Total</label>
+          <div className="text-xl font-bold text-pink-600">
+            {appointment.totalAmount !== undefined && appointment.totalAmount !== null 
+              ? `$${Number(appointment.totalAmount).toFixed(2)}` 
+              : 'N/D'}
+          </div>
         </div>
       </div>
 

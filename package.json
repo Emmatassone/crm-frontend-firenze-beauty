@@ -20,6 +20,7 @@
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.56.4",
     "react-select": "^5.10.1",
+    "recharts": "^2.15.0",
     "zod": "^3.25.34",
     "zustand": "^5.0.5"
   },

@@ -92,8 +92,10 @@ export interface Appointment {
   arrivalTime?: string;
   leaveTime?: string;
   serviceConsumed: string;
+  serviceQuantities?: string;
   usedDiscount?: string;
   additionalComments?: string;
+  totalAmount?: number;
   createdAt: string; 
   updatedAt: string;
 }
