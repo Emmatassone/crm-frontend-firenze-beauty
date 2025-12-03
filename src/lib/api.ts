@@ -20,22 +20,22 @@ async function handleResponse<T>(response: Response): Promise<T> {
 // Generic request function with authentication
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  
+
   // Get auth store dynamically to avoid circular dependencies
   const { useAuthStore } = await import('./store/auth');
   const { token, isTokenValid, logout } = useAuthStore.getState();
-  
+
   // Check if token is valid before making request
   if (token) {
     const isValid = isTokenValid();
-    
+
     if (!isValid) {
       logout();
       window.location.href = '/login';
       throw new Error('Authentication token expired');
     }
   }
-  
+
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -44,14 +44,14 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
       ...options?.headers,
     },
   });
-  
+
   // Handle 401 responses (token expired or invalid)
   if (response.status === 401) {
     logout();
     window.location.href = '/login';
     throw new Error('Authentication failed');
   }
-  
+
   return handleResponse<T>(response);
 }
 
@@ -67,7 +67,7 @@ export interface ClientProfile {
   nailDetails?: string;
   clientAllergies?: string;
   appointments?: any[]; // Define Appointment type later
-  createdAt: string; 
+  createdAt: string;
   updatedAt: string;
 }
 
@@ -96,7 +96,7 @@ export interface Appointment {
   usedDiscount?: string;
   additionalComments?: string;
   totalAmount?: number;
-  createdAt: string; 
+  createdAt: string;
   updatedAt: string;
 }
 export type CreateAppointmentDto = Omit<Appointment, 'id' | 'client' | 'createdAt' | 'updatedAt'>;
@@ -119,7 +119,7 @@ export interface Product {
   purchasePrice?: number;
   sellingPrice?: number;
   lastRestockDate?: string;
-  createdAt: string; 
+  createdAt: string;
   updatedAt: string;
 }
 export type CreateProductDto = Omit<Product, 'id' | 'createdAt' | 'updatedAt'>;
@@ -183,18 +183,18 @@ export const deleteEmployee = (id: string): Promise<void> => request<void>(`/emp
 // --- ProductSale Types ---
 export interface ProductSale {
   id: string;
-  productName: string;
-  sku?: string;
-  productId: string;
+  productName: string[];
+  sku?: string[];
+  productId: string[];
   product?: Product; // Relation
   clientName?: string;
   clientId?: string;
   client?: ClientProfile; // Relation
   dateTime: string; // ISO string
-  quantitySold: number;
-  sellingPricePerUnit: number;
-  totalSaleAmount: number;
-  discountApplied?: string;
+  quantitySold: number[];
+  sellingPricePerUnit: number[];
+  totalSaleAmount: number[];
+  discountApplied?: string[];
   finalAmount: number;
   sellerEmployeeId?: string;
   sellerEmployee?: Employee; // Relation
@@ -206,19 +206,19 @@ export interface ProductSale {
 // For CreateProductSaleDto, productName and sku are not sent by client, they are set by backend service.
 // totalSaleAmount and finalAmount are also calculated by backend or validated if sent.
 export interface CreateProductSaleDto {
-  productId: string;
+  productId: string[];
   clientId?: string;
   dateTime?: string; // Optional, defaults to now on backend
-  quantitySold: number;
-  sellingPricePerUnit: number; // Price at time of sale
-  totalSaleAmount: number; // Pre-calculated by frontend for validation or reference
-  discountApplied?: string;
+  quantitySold: number[];
+  sellingPricePerUnit: number[]; // Price at time of sale
+  totalSaleAmount: number[]; // Pre-calculated by frontend for validation or reference
+  discountApplied?: string[];
   finalAmount: number; // Pre-calculated by frontend for validation or reference
   sellerEmployeeId?: string;
   comment?: string;
 }
 
-export type UpdateProductSaleDto = Partial<Omit<CreateProductSaleDto, 'productId' | 'quantitySold' | 'sellingPricePerUnit' | 'totalSaleAmount' | 'finalAmount'> & { comment?: string }>; // Example: only comment updatable
+export type UpdateProductSaleDto = Partial<Omit<CreateProductSaleDto, 'productId' | 'quantitySold' | 'sellingPricePerUnit' | 'totalSaleAmount' | 'finalAmount'> & { comment?: string }>;
 
 // --- ProductSale API Functions ---
 export const getProductSales = (): Promise<ProductSale[]> => request<ProductSale[]>('/sales');
@@ -227,4 +227,4 @@ export const createProductSale = (data: CreateProductSaleDto): Promise<ProductSa
 // Update might be very restricted or not used for sales records
 export const updateProductSale = (id: string, data: UpdateProductSaleDto): Promise<ProductSale> => request<ProductSale>(`/sales/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 // Delete also sensitive
-export const deleteProductSale = (id: string): Promise<void> => request<void>(`/sales/${id}`, { method: 'DELETE' }); 
+export const deleteProductSale = (id: string): Promise<void> => request<void>(`/sales/${id}`, { method: 'DELETE' });

@@ -3,31 +3,33 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { SubmitHandler } from 'react-hook-form';
-import { createProductSale, CreateProductSaleDto } from '@/lib/api';
-import SaleForm, { SaleFormValues } from '../SaleForm';
+import { createProductSale, CreateProductSaleDto, getClientProfiles, ClientProfile } from '@/lib/api';
+import SaleForm from '../SaleForm';
 
 export default function NewSalePage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [clients, setClients] = useState<ClientProfile[]>([]);
 
-  const onSubmit: SubmitHandler<SaleFormValues> = async (data) => {
+  useEffect(() => {
+    async function fetchClients() {
+      try {
+        const clientData = await getClientProfiles();
+        setClients(clientData);
+      } catch (e) {
+        console.error("Error al cargar clientes", e);
+        setError("No se pudieron cargar los clientes.");
+      }
+    }
+    fetchClients();
+  }, []);
+
+  const onSubmit = async (data: CreateProductSaleDto) => {
     setIsLoading(true);
     setError(null);
     try {
-      const payload: CreateProductSaleDto = {
-        productId: data.productId,
-        clientId: data.clientId === '' ? undefined : data.clientId,
-        quantitySold: Number(data.quantitySold),
-        sellingPricePerUnit: Number(data.sellingPricePerUnit),
-        totalSaleAmount: Number(data.totalSaleAmount),
-        finalAmount: Number(data.finalAmount),
-        discountApplied: data.discountApplied === '' ? undefined : data.discountApplied,
-        dateTime: data.dateTime ? data.dateTime.split('-').reverse().join('-') : new Date().toISOString(),
-      };
-      
-      await createProductSale(payload);
+      await createProductSale(data);
       router.push('/sales');
     } catch (e: any) {
       setError(e.message || 'Error al registrar la venta.');
@@ -50,12 +52,10 @@ export default function NewSalePage() {
         </div>
       )}
 
-      <SaleForm 
-        onSubmit={onSubmit} 
-        isLoading={isLoading} 
-        defaultValues={{
-          dateTime: new Date().toISOString(),
-        }}
+      <SaleForm
+        onSubmit={onSubmit}
+        isLoading={isLoading}
+        clients={clients}
       />
     </div>
   );

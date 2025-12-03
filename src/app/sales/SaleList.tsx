@@ -39,16 +39,16 @@ export default function SaleList({ initialSales }: SaleListProps) {
   const filteredSales = useMemo(() => {
     if (!searchTerm) return initialSales;
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
-    return initialSales.filter(sale => 
-      (sale.productName.toLowerCase().includes(lowerCaseSearchTerm)) ||
-      (sale.sku?.toLowerCase().includes(lowerCaseSearchTerm))
+    return initialSales.filter(sale =>
+      (sale.productName?.some(name => name.toLowerCase().includes(lowerCaseSearchTerm))) ||
+      (sale.sku?.some(sku => sku.toLowerCase().includes(lowerCaseSearchTerm)))
     );
   }, [searchTerm, initialSales]);
 
   return (
     <div>
       <div className="mb-4">
-        <input 
+        <input
           type="text"
           placeholder="Buscar por nombre de producto, SKU..."
           className="mt-1 block w-full md:w-1/2 lg:w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
@@ -61,7 +61,7 @@ export default function SaleList({ initialSales }: SaleListProps) {
         <p className="text-gray-600">No se encontraron ventas con el término "{searchTerm}".</p>
       )}
       {filteredSales.length === 0 && !searchTerm && initialSales.length > 0 && (
-         <p className="text-gray-600">No hay ventas que coincidan con su búsqueda actual, pero sí hay ventas registradas.</p>
+        <p className="text-gray-600">No hay ventas que coincidan con su búsqueda actual, pero sí hay ventas registradas.</p>
       )}
 
       {filteredSales.length > 0 && (
@@ -83,19 +83,38 @@ export default function SaleList({ initialSales }: SaleListProps) {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredSales.map((sale, index) => (
-                <tr 
-                  key={sale.id} 
-                  className={`hover:bg-pink-50 transition duration-150 ease-in-out ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                  }`}
+                <tr
+                  key={sale.id}
+                  className={`hover:bg-pink-50 transition duration-150 ease-in-out ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                    }`}
                 >
-                  <td className={tdStyle}>{sale.productName}</td>
-                  <td className={tdStyle}>{sale.sku || naDisplay}</td>
+                  <td className={tdStyle}>
+                    {sale.productName?.map((name, i) => (
+                      <div key={i}>{name}</div>
+                    )) || naDisplay}
+                  </td>
+                  <td className={tdStyle}>
+                    {sale.sku?.map((sku, i) => (
+                      <div key={i}>{sku}</div>
+                    )) || naDisplay}
+                  </td>
                   <td className={tdStyle}>{formatDateTime(sale.dateTime)}</td>
-                  <td className={tdStyle}>{sale.quantitySold}</td>
-                  <td className={tdStyle}>{formatCurrency(sale.sellingPricePerUnit)}</td>
+                  <td className={tdStyle}>
+                    {sale.quantitySold?.map((q, i) => (
+                      <div key={i}>{q}</div>
+                    )) || naDisplay}
+                  </td>
+                  <td className={tdStyle}>
+                    {sale.sellingPricePerUnit?.map((p, i) => (
+                      <div key={i}>{formatCurrency(p)}</div>
+                    )) || naDisplay}
+                  </td>
                   {/* <td className={tdStyle}>{formatCurrency(sale.totalSaleAmount)}</td> */}
-                  <td className={tdStyle}>{formatDiscount(sale.discountApplied)}</td>
+                  <td className={tdStyle}>
+                    {sale.discountApplied?.map((d, i) => (
+                      <div key={i}>{formatDiscount(d)}</div>
+                    )) || naDisplay}
+                  </td>
                   <td className={`${tdStyle} font-semibold`}>{formatCurrency(sale.finalAmount)}</td>
                   <td className={tdStyle}>{sale.clientName || naDisplay}</td>
                   <td className={`${tdStyle} text-right`}>

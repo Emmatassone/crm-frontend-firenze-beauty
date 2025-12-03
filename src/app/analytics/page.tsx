@@ -7,6 +7,7 @@ import {
   getEmployeeMonthlyPerformance,
   getClientMonthlyBehavior,
 } from '@/lib/api/analytics';
+import { getEmployees } from '@/lib/api';
 import {
   BarChart,
   Bar,
@@ -16,9 +17,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
   AreaChart,
   Area,
 } from 'recharts';
@@ -36,6 +34,8 @@ export default function AnalyticsPage() {
   const [financeData, setFinanceData] = useState<any[]>([]);
   const [employeeData, setEmployeeData] = useState<any[]>([]);
   const [clientData, setClientData] = useState<any[]>([]);
+  const [activeEmployees, setActiveEmployees] = useState<any[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
 
   useEffect(() => {
     loadDashboard();
@@ -68,8 +68,12 @@ export default function AnalyticsPage() {
   const loadEmployeeData = async () => {
     try {
       setLoading(true);
-      const data = await getEmployeeMonthlyPerformance();
-      setEmployeeData(data);
+      const [analyticsData, employeesList] = await Promise.all([
+        getEmployeeMonthlyPerformance(),
+        getEmployees()
+      ]);
+      setEmployeeData(analyticsData);
+      setActiveEmployees(employeesList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load employee analytics');
     } finally {
@@ -144,8 +148,8 @@ export default function AnalyticsPage() {
             key={tab}
             onClick={() => handleTabChange(tab)}
             className={`px-4 py-2 font-medium transition-colors ${activeTab === tab
-                ? 'text-pink-600 border-b-2 border-pink-600'
-                : 'text-gray-600 hover:text-pink-600'
+              ? 'text-pink-600 border-b-2 border-pink-600'
+              : 'text-gray-600 hover:text-pink-600'
               }`}
           >
             {tabNames[tab]}
@@ -237,13 +241,77 @@ export default function AnalyticsPage() {
           {/* Employees Tab */}
           {activeTab === 'employees' && (
             <div className="space-y-6">
+              {/* Employee Filter */}
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Rendimiento de Empleados (Mes Actual)</h2>
+                <label htmlFor="employee-select" className="block text-sm font-medium text-gray-700 mb-2">
+                  Seleccionar Empleado
+                </label>
+                <select
+                  id="employee-select"
+                  className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  value={selectedEmployee || ''}
+                  onChange={(e) => setSelectedEmployee(e.target.value || null)}
+                >
+                  <option value="">Todos los empleados</option>
+                  {activeEmployees.map(employee => (
+                    <option key={employee.id} value={employee.name}>{employee.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Historical Revenue by Employee */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                  Ingresos Históricos {selectedEmployee ? `- ${selectedEmployee}` : 'por Empleado'}
+                </h2>
                 <div className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={employeeData}>
+                    <BarChart data={(() => {
+                      const filtered = selectedEmployee
+                        ? employeeData.filter(e => e.employee_name === selectedEmployee)
+                        : employeeData;
+
+                      // Group by month and sum revenue
+                      const revenueByMonth = filtered.reduce((acc, emp) => {
+                        const existing = acc.find((item: { month: string, revenue: number }) => item.month === emp.month);
+                        if (existing) {
+                          existing.revenue += Number(emp.generated_income || 0);
+                        } else {
+                          acc.push({
+                            month: emp.month,
+                            revenue: Number(emp.generated_income || 0)
+                          });
+                        }
+                        return acc;
+                      }, [] as Array<{ month: string, revenue: number }>);
+
+                      return revenueByMonth.reverse();
+                    })()}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="employee_name" />
+                      <XAxis dataKey="month" />
+                      <YAxis tickFormatter={(value) => `$${value}`} />
+                      <Tooltip formatter={(value: number) => [formatCurrency(value), 'Ingresos']} />
+                      <Bar dataKey="revenue" name="Ingresos Generados" fill="#10b981" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Performance Metrics */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                  Rendimiento {selectedEmployee ? `- ${selectedEmployee}` : '(Mes Actual)'}
+                </h2>
+                <div className="h-96">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={(() => {
+                      const filtered = selectedEmployee
+                        ? employeeData.filter(e => e.employee_name === selectedEmployee)
+                        : employeeData.filter(e => e.month === employeeData[0]?.month);
+                      return filtered;
+                    })()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey={selectedEmployee ? "month" : "employee_name"} />
                       <YAxis yAxisId="left" orientation="left" stroke="#ec4899" />
                       <YAxis yAxisId="right" orientation="right" stroke="#3b82f6" />
                       <Tooltip />
@@ -254,6 +322,112 @@ export default function AnalyticsPage() {
                   </ResponsiveContainer>
                 </div>
               </div>
+
+              {/* Service Time Breakdown */}
+              {selectedEmployee && (() => {
+                // Get last 3 months of data for the selected employee
+                const employeeMonthlyData = employeeData
+                  .filter(e => e.employee_name === selectedEmployee)
+                  .sort((a, b) => b.month.localeCompare(a.month))
+                  .slice(0, 3);
+
+                if (employeeMonthlyData.length === 0) {
+                  return null;
+                }
+
+                // Aggregate services across the last 3 months
+                const serviceMap = new Map<string, { [month: string]: number }>();
+                const months: string[] = [];
+
+                employeeMonthlyData.forEach(data => {
+                  const month = data.month;
+                  months.push(month);
+
+                  const services = typeof data.service_time_breakdown === 'string'
+                    ? JSON.parse(data.service_time_breakdown)
+                    : data.service_time_breakdown;
+
+                  if (services && Array.isArray(services)) {
+                    services.forEach((service: any) => {
+                      if (!serviceMap.has(service.service)) {
+                        serviceMap.set(service.service, {});
+                      }
+                      serviceMap.get(service.service)![month] = service.avg_duration_minutes;
+                    });
+                  }
+                });
+
+                if (serviceMap.size === 0) {
+                  return null;
+                }
+
+                // Transform data for grouped bar chart
+                const chartData = Array.from(serviceMap.entries()).map(([serviceName, monthlyDurations]) => {
+                  const row: any = { service: serviceName };
+                  months.forEach(month => {
+                    row[month] = monthlyDurations[month] || 0;
+                  });
+                  return row;
+                });
+
+                // Month colors
+                const monthColors = ['#ec4899', '#8b5cf6', '#3b82f6'];
+
+                return (
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                      Desglose de Tiempo por Servicio - {selectedEmployee} (Últimos 3 Meses)
+                    </h2>
+                    <div className="mb-6">
+                      <ResponsiveContainer width="100%" height={400}>
+                        <BarChart data={chartData} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis type="number" label={{ value: 'Minutos', position: 'insideBottom', offset: -5 }} />
+                          <YAxis dataKey="service" type="category" width={180} tick={{ fontSize: 11 }} />
+                          <Tooltip formatter={(value: number) => [`${value} min`, '']} />
+                          <Legend />
+                          {months.map((month, idx) => (
+                            <Bar
+                              key={month}
+                              dataKey={month}
+                              fill={monthColors[idx]}
+                              name={month}
+                            />
+                          ))}
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Servicio
+                            </th>
+                            {months.map(month => (
+                              <th key={month} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                {month}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {chartData.map((row: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.service}</td>
+                              {months.map(month => (
+                                <td key={month} className="px-6 py-4 text-sm text-gray-600">
+                                  {row[month] ? `${row[month]} min` : '-'}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -281,7 +455,7 @@ export default function AnalyticsPage() {
                   <ResponsiveContainer width="100%" height={400}>
                     <BarChart data={(() => {
                       const ageGroups = { '18-25': 0, '26-35': 0, '36-45': 0, '46-60': 0, '60+': 0 };
-                      clientData.forEach(c => {
+                      clientData.forEach((c: any) => {
                         const age = c.client_age;
                         if (age) {
                           if (age <= 25) ageGroups['18-25']++;
