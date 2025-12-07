@@ -91,9 +91,9 @@ export interface Appointment {
   client?: ClientProfile; // Optional, if eager loaded
   arrivalTime?: string;
   leaveTime?: string;
-  serviceConsumed: string;
-  serviceQuantities?: string;
-  usedDiscount?: string;
+  serviceConsumed: string[];
+  serviceQuantities?: string[];
+  usedDiscount?: string[];
   additionalComments?: string;
   totalAmount?: number;
   createdAt: string;

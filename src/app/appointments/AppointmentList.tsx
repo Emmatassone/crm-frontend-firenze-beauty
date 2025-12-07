@@ -31,10 +31,11 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
     return initialAppointments.filter(appt => {
       const clientIdentifier = appt.clientName || appt.client?.name || appt.client?.phoneNumber || '';
       const formattedDate = formatDateTime(appt.appointmentDate).toLowerCase();
+      const servicesText = Array.isArray(appt.serviceConsumed) ? appt.serviceConsumed.join(', ') : (appt.serviceConsumed || '');
       return (
         clientIdentifier.toLowerCase().includes(lowerCaseSearchTerm) ||
         formattedDate.includes(lowerCaseSearchTerm) || // Search in formatted date
-        appt.serviceConsumed.toLowerCase().includes(lowerCaseSearchTerm) || // Also allow search by service
+        servicesText.toLowerCase().includes(lowerCaseSearchTerm) || // Also allow search by service
         appt.attendedEmployee.toLowerCase().includes(lowerCaseSearchTerm) // And by employee
       );
     });
@@ -43,7 +44,7 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
   return (
     <div>
       <div className="mb-4">
-        <input 
+        <input
           type="text"
           placeholder="Buscar por cliente, fecha, servicio, empleado..."
           className="mt-1 block w-full md:w-1/2 lg:w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
@@ -55,8 +56,8 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
       {filteredAppointments.length === 0 && searchTerm && (
         <p className="text-gray-600">No se encontraron turnos con el término "{searchTerm}".</p>
       )}
-       {filteredAppointments.length === 0 && !searchTerm && initialAppointments.length > 0 && (
-         <p className="text-gray-600">No hay turnos que coincidan con su búsqueda actual, pero sí hay turnos registrados.</p>
+      {filteredAppointments.length === 0 && !searchTerm && initialAppointments.length > 0 && (
+        <p className="text-gray-600">No hay turnos que coincidan con su búsqueda actual, pero sí hay turnos registrados.</p>
       )}
 
       {filteredAppointments.length > 0 && (
@@ -75,27 +76,26 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
                   <th scope="col" className={thStyle}>Acciones</th>
                 </tr>
               </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredAppointments.map((appt, index) => (
-                <tr 
-                  key={appt.id} 
-                  className={`hover:bg-pink-50 transition ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                  }`}
-                >
-                  <td className={tdStyle}>{appt.clientName || appt.client?.name || appt.client?.phoneNumber || 'N/D'}</td>
-                  <td className={tdStyle}>{appt.serviceConsumed}</td>
-                  <td className={tdStyle}>{formatDateTime(appt.appointmentDate)}</td>
-                  <td className={tdStyle}>{appt.attendedEmployee}</td>
-                  <td className={`${tdStyle} text-right`}>
-                    <Link href={`/appointments/${appt.id}`} className="text-pink-600 hover:text-pink-800 font-medium">
-                      Ver Detalles
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredAppointments.map((appt, index) => (
+                  <tr
+                    key={appt.id}
+                    className={`hover:bg-pink-50 transition ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                      }`}
+                  >
+                    <td className={tdStyle}>{appt.clientName || appt.client?.name || appt.client?.phoneNumber || 'N/D'}</td>
+                    <td className={tdStyle}>{Array.isArray(appt.serviceConsumed) ? appt.serviceConsumed.join(', ') : appt.serviceConsumed}</td>
+                    <td className={tdStyle}>{formatDateTime(appt.appointmentDate)}</td>
+                    <td className={tdStyle}>{appt.attendedEmployee}</td>
+                    <td className={`${tdStyle} text-right`}>
+                      <Link href={`/appointments/${appt.id}`} className="text-pink-600 hover:text-pink-800 font-medium">
+                        Ver Detalles
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

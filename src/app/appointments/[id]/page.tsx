@@ -24,7 +24,7 @@ export default function AppointmentDetailsPage() {
     setIsLoading(true);
     setError(null);
     getAppointmentById(id)
-      .then((data) => { 
+      .then((data) => {
         if (isMounted) {
           setAppointment(data);
           setEditForm({
@@ -35,6 +35,7 @@ export default function AppointmentDetailsPage() {
             arrivalTime: data.arrivalTime,
             leaveTime: data.leaveTime,
             serviceConsumed: data.serviceConsumed,
+            serviceQuantities: data.serviceQuantities,
             usedDiscount: data.usedDiscount,
             additionalComments: data.additionalComments,
           });
@@ -47,10 +48,10 @@ export default function AppointmentDetailsPage() {
 
   const handleSave = async () => {
     if (!id || !appointment) return;
-    
+
     setIsSaving(true);
     setError(null);
-    
+
     try {
       const updatedAppointment = await updateAppointment(id, editForm);
       setAppointment(updatedAppointment);
@@ -72,6 +73,7 @@ export default function AppointmentDetailsPage() {
         arrivalTime: appointment.arrivalTime,
         leaveTime: appointment.leaveTime,
         serviceConsumed: appointment.serviceConsumed,
+        serviceQuantities: appointment.serviceQuantities,
         usedDiscount: appointment.usedDiscount,
         additionalComments: appointment.additionalComments,
       });
@@ -80,46 +82,55 @@ export default function AppointmentDetailsPage() {
     setError(null);
   };
 
-  const handleInputChange = (field: keyof UpdateAppointmentDto, value: string) => {
-    setEditForm(prev => {
-      const updated = {
-        ...prev,
-        [field]: value === '' ? undefined : value
-      };
+  const handleServiceChange = (value: string) => {
+    // Parse comma-separated input to array for backwards compatibility in edit mode
+    const servicesArray = value.split(',').map(s => s.trim()).filter(s => s);
+    const currentDiscounts = editForm.usedDiscount || [];
+    const currentQuantities = editForm.serviceQuantities || [];
 
-      // Sync discounts when services change
-      if (field === 'serviceConsumed' && value) {
-        const servicesArray = value.split(',').filter((s: string) => s.trim());
-        const currentDiscounts = prev.usedDiscount || '';
-        const discountsArray = currentDiscounts.split(',').filter((d: string) => d.trim());
-        
-        // Ensure discounts match services length
-        const newDiscounts = servicesArray.map((_, index) => 
-          discountsArray[index] || '0'
-        );
-        updated.usedDiscount = newDiscounts.join(',');
-      }
+    // Ensure discounts match services length
+    const newDiscounts = servicesArray.map((_, index) => currentDiscounts[index] || '0');
+    const newQuantities = servicesArray.map((_, index) => currentQuantities[index] || '1');
 
-      return updated;
-    });
+    setEditForm(prev => ({
+      ...prev,
+      serviceConsumed: servicesArray,
+      usedDiscount: newDiscounts,
+      serviceQuantities: newQuantities,
+    }));
   };
 
   const handleDiscountChange = (index: number, value: string) => {
-    const currentDiscounts = editForm.usedDiscount || '';
-    const discountsArray = currentDiscounts.split(',').filter((d: string) => d.trim());
+    const discountsArray = [...(editForm.usedDiscount || [])];
     discountsArray[index] = value;
     setEditForm(prev => ({
       ...prev,
-      usedDiscount: discountsArray.join(',')
+      usedDiscount: discountsArray
+    }));
+  };
+
+  const handleQuantityChange = (index: number, value: string) => {
+    const quantitiesArray = [...(editForm.serviceQuantities || [])];
+    quantitiesArray[index] = value;
+    setEditForm(prev => ({
+      ...prev,
+      serviceQuantities: quantitiesArray
+    }));
+  };
+
+  const handleInputChange = (field: keyof UpdateAppointmentDto, value: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: value === '' ? undefined : value
     }));
   };
 
   const handleDelete = async () => {
     if (!id) return;
-    
+
     setIsDeleting(true);
     setError(null);
-    
+
     try {
       await deleteAppointment(id);
       router.push('/appointments');
@@ -149,6 +160,14 @@ export default function AppointmentDetailsPage() {
       </div>
     );
   }
+
+  const servicesArray = Array.isArray(appointment.serviceConsumed) ? appointment.serviceConsumed : [];
+  const quantitiesArray = Array.isArray(appointment.serviceQuantities) ? appointment.serviceQuantities : [];
+  const discountsArray = Array.isArray(appointment.usedDiscount) ? appointment.usedDiscount : [];
+
+  const editServicesArray = Array.isArray(editForm.serviceConsumed) ? editForm.serviceConsumed : [];
+  const editQuantitiesArray = Array.isArray(editForm.serviceQuantities) ? editForm.serviceQuantities : [];
+  const editDiscountsArray = Array.isArray(editForm.usedDiscount) ? editForm.usedDiscount : [];
 
   return (
     <div className="space-y-6">
@@ -266,29 +285,25 @@ export default function AppointmentDetailsPage() {
           {isEditing ? (
             <input
               type="text"
-              value={editForm.serviceConsumed || ''}
-              onChange={(e) => handleInputChange('serviceConsumed', e.target.value)}
+              value={editServicesArray.join(', ')}
+              onChange={(e) => handleServiceChange(e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
               disabled={isSaving}
+              placeholder="Separar servicios con comas"
               required
             />
           ) : (
             <div className="text-lg text-gray-900">
-              {(() => {
-                const servicesArray = appointment.serviceConsumed ? appointment.serviceConsumed.split(',').filter(s => s.trim()) : [];
-                const quantitiesArray = appointment.serviceQuantities ? appointment.serviceQuantities.split(',').filter(q => q.trim()) : [];
-                
-                return servicesArray.map((service, index) => {
-                  const quantity = parseInt(quantitiesArray[index]) || 1;
-                  return (
-                    <span key={index}>
-                      {index > 0 && ', '}
-                      {service.trim()}
-                      {quantity > 1 && <span className="text-pink-500 font-medium"> ×{quantity}</span>}
-                    </span>
-                  );
-                });
-              })()}
+              {servicesArray.map((service: string, index: number) => {
+                const quantity = parseInt(quantitiesArray[index]) || 1;
+                return (
+                  <span key={index}>
+                    {index > 0 && ', '}
+                    {service.trim()}
+                    {quantity > 1 && <span className="text-pink-500 font-medium"> ×{quantity}</span>}
+                  </span>
+                );
+              })}
             </div>
           )}
         </div>
@@ -324,50 +339,68 @@ export default function AppointmentDetailsPage() {
         </div>
 
         <div>
-          <label className="text-sm text-gray-500 block">Descuento Aplicado</label>
+          <label className="text-sm text-gray-500 block">Cantidad y Descuento por Servicio</label>
           {isEditing ? (
             (() => {
-              const servicesArray = editForm.serviceConsumed ? editForm.serviceConsumed.split(',').filter((s: string) => s.trim()) : [];
-              const discountsArray = editForm.usedDiscount ? editForm.usedDiscount.split(',').filter((d: string) => d.trim()) : [];
-              
-              // Ensure discounts array matches services length
-              while (discountsArray.length < servicesArray.length) {
-                discountsArray.push('0');
-              }
-              while (discountsArray.length > servicesArray.length) {
-                discountsArray.pop();
-              }
-
-              if (servicesArray.length === 0) {
+              if (editServicesArray.length === 0) {
                 return (
                   <p className="mt-1 text-sm text-gray-500 italic">
-                    Primero agregue servicios para establecer descuentos
+                    Primero agregue servicios para establecer cantidades y descuentos
                   </p>
                 );
               }
 
               return (
                 <div className="space-y-2 mt-2">
-                  {servicesArray.map((service, index) => (
+                  {editServicesArray.map((service: string, index: number) => (
                     <div key={index} className="flex items-center space-x-3 bg-gray-50 p-2 rounded-md">
                       <span className="flex-1 text-sm text-gray-700 font-medium">{service}</span>
-                      <select
-                        value={discountsArray[index] || '0'}
-                        onChange={(e) => handleDiscountChange(index, e.target.value)}
-                        className="px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-sm"
-                        disabled={isSaving}
-                      >
-                        {Array.from({ length: 21 }, (_, i) => i * 5).map(value => (
-                          <option key={value} value={value.toString()}>{value}%</option>
-                        ))}
-                      </select>
+                      <div className="flex items-center gap-1">
+                        <label className="text-xs text-gray-500">Cant:</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="99"
+                          value={editQuantitiesArray[index] || '1'}
+                          onChange={(e) => handleQuantityChange(index, e.target.value)}
+                          className="w-14 px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-sm text-center"
+                          disabled={isSaving}
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <label className="text-xs text-gray-500">Desc:</label>
+                        <select
+                          value={editDiscountsArray[index] || '0'}
+                          onChange={(e) => handleDiscountChange(index, e.target.value)}
+                          className="px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-sm"
+                          disabled={isSaving}
+                        >
+                          {Array.from({ length: 21 }, (_, i) => i * 5).map(value => (
+                            <option key={value} value={value.toString()}>{value}%</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   ))}
                 </div>
               );
             })()
           ) : (
-            <div className="text-lg text-gray-900">{appointment.usedDiscount || 'N/D'}</div>
+            <div className="text-lg text-gray-900">
+              {servicesArray.length > 0 ? (
+                servicesArray.map((service: string, index: number) => {
+                  const quantity = parseInt(quantitiesArray[index]) || 1;
+                  const discount = parseInt(discountsArray[index]) || 0;
+                  return (
+                    <div key={index} className="text-sm">
+                      {service}: Cant. {quantity}, Desc. {discount}%
+                    </div>
+                  );
+                })
+              ) : (
+                'N/D'
+              )}
+            </div>
           )}
         </div>
 
@@ -390,8 +423,8 @@ export default function AppointmentDetailsPage() {
         <div className="md:col-span-2">
           <label className="text-sm text-gray-500 block">Precio Total</label>
           <div className="text-xl font-bold text-pink-600">
-            {appointment.totalAmount !== undefined && appointment.totalAmount !== null 
-              ? `$${Number(appointment.totalAmount).toFixed(2)}` 
+            {appointment.totalAmount !== undefined && appointment.totalAmount !== null
+              ? `$${Number(appointment.totalAmount).toFixed(2)}`
               : 'N/D'}
           </div>
         </div>
@@ -411,7 +444,7 @@ export default function AppointmentDetailsPage() {
                 const month = String(date.getUTCMonth() + 1).padStart(2, '0');
                 const year = date.getUTCFullYear();
                 return `${day}/${month}/${year}`;
-              })()}? 
+              })()}?
               Esta acción no se puede deshacer.
             </p>
             <div className="flex gap-3 justify-end">
@@ -436,5 +469,3 @@ export default function AppointmentDetailsPage() {
     </div>
   );
 }
-
-

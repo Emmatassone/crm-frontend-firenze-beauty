@@ -17,9 +17,9 @@ const appointmentSchema = z.object({
   clientId: z.string().min(1, 'El ID del cliente es requerido'),
   arrivalTime: z.string().optional(),
   leaveTime: z.string().optional(),
-  serviceConsumed: z.string().min(1, 'El servicio es requerido'),
-  serviceQuantities: z.string().optional(),
-  usedDiscount: z.string().optional(),
+  serviceConsumed: z.array(z.string()).min(1, 'El servicio es requerido'),
+  serviceQuantities: z.array(z.string()).optional(),
+  usedDiscount: z.array(z.string()).optional(),
   additionalComments: z.string().optional(),
   totalAmount: z.number().optional(),
 });
@@ -89,29 +89,28 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
       })() : getTodayDate(),
       arrivalTime: defaultValues?.arrivalTime || getCurrentTime(),
       leaveTime: defaultValues?.leaveTime || getCurrentTime(),
+      serviceConsumed: defaultValues?.serviceConsumed || [],
+      serviceQuantities: defaultValues?.serviceQuantities || [],
+      usedDiscount: defaultValues?.usedDiscount || [],
     },
   });
 
   const selectedClientId = watch('clientId');
-  const serviceConsumed = watch('serviceConsumed');
-  const serviceQuantities = watch('serviceQuantities');
-  const usedDiscount = watch('usedDiscount');
+  const serviceConsumed = watch('serviceConsumed') || [];
+  const serviceQuantities = watch('serviceQuantities') || [];
+  const usedDiscount = watch('usedDiscount') || [];
 
   // Calculate total price based on selected services, quantities, and discounts
   const calculateTotalPrice = () => {
-    if (!serviceConsumed) return { total: 0, originalTotal: 0 };
-
-    const servicesArray = serviceConsumed.split(',').filter(s => s.trim());
-    const quantitiesArray = serviceQuantities ? serviceQuantities.split(',').filter(q => q.trim()) : [];
-    const discountsArray = usedDiscount ? usedDiscount.split(',').filter(d => d.trim()) : [];
+    if (!serviceConsumed || serviceConsumed.length === 0) return { total: 0, originalTotal: 0 };
 
     let total = 0;
     let originalTotal = 0;
-    servicesArray.forEach((serviceName, index) => {
+    serviceConsumed.forEach((serviceName: string, index: number) => {
       const service = services.find(s => s.name === serviceName.trim());
       if (service) {
-        const quantity = parseInt(quantitiesArray[index]) || 1;
-        const discount = parseFloat(discountsArray[index]) || 0;
+        const quantity = parseInt(serviceQuantities[index]) || 1;
+        const discount = parseFloat(usedDiscount[index]) || 0;
         const price = Number(service.price) || 0;
         const lineOriginal = price * quantity;
         const discountedPrice = lineOriginal * (1 - discount / 100);
@@ -143,33 +142,30 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
 
   // Sync discounts and quantities with services
   useEffect(() => {
-    if (serviceConsumed) {
-      const servicesArray = serviceConsumed.split(',').filter(s => s.trim());
-      const currentDiscounts = watch('usedDiscount');
-      const currentQuantities = watch('serviceQuantities');
-      const discountsArray = currentDiscounts ? currentDiscounts.split(',').filter(d => d.trim()) : [];
-      const quantitiesArray = currentQuantities ? currentQuantities.split(',').filter(q => q.trim()) : [];
+    if (serviceConsumed && serviceConsumed.length > 0) {
+      const currentDiscounts = watch('usedDiscount') || [];
+      const currentQuantities = watch('serviceQuantities') || [];
 
       // Adjust discounts array to match services length
-      if (servicesArray.length !== discountsArray.length) {
-        const newDiscounts = servicesArray.map((_, index) =>
-          discountsArray[index] || '0'
+      if (serviceConsumed.length !== currentDiscounts.length) {
+        const newDiscounts = serviceConsumed.map((_: string, index: number) =>
+          currentDiscounts[index] || '0'
         );
-        setValue('usedDiscount', newDiscounts.join(','));
+        setValue('usedDiscount', newDiscounts);
       }
 
       // Adjust quantities array to match services length
-      if (servicesArray.length !== quantitiesArray.length) {
-        const newQuantities = servicesArray.map((_, index) =>
-          quantitiesArray[index] || '1'
+      if (serviceConsumed.length !== currentQuantities.length) {
+        const newQuantities = serviceConsumed.map((_: string, index: number) =>
+          currentQuantities[index] || '1'
         );
-        setValue('serviceQuantities', newQuantities.join(','));
+        setValue('serviceQuantities', newQuantities);
       }
     } else {
-      setValue('usedDiscount', '');
-      setValue('serviceQuantities', '');
+      setValue('usedDiscount', []);
+      setValue('serviceQuantities', []);
     }
-  }, [serviceConsumed, setValue]);
+  }, [serviceConsumed, setValue, watch]);
 
   const inputStyle = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm";
   const labelStyle = "block text-sm font-medium text-gray-700";
@@ -230,18 +226,18 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
           name="serviceConsumed"
           control={control}
           render={({ field }) => {
-            const servicesArray = field.value ? field.value.split(',').filter(s => s.trim()) : [];
+            const servicesArray = field.value || [];
 
             const handleAddService = (serviceName: string) => {
               if (serviceName) {
                 const newServices = [...servicesArray, serviceName];
-                field.onChange(newServices.join(','));
+                field.onChange(newServices);
               }
             };
 
             const handleRemoveService = (index: number) => {
-              const newServices = servicesArray.filter((_, i) => i !== index);
-              field.onChange(newServices.join(','));
+              const newServices = servicesArray.filter((_: string, i: number) => i !== index);
+              field.onChange(newServices);
             };
 
             return (
@@ -259,7 +255,7 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
                 />
                 {servicesArray.length > 0 && (
                   <div className="space-y-1 mt-2">
-                    {servicesArray.map((service, index) => (
+                    {servicesArray.map((service: string, index: number) => (
                       <div key={index} className="flex items-center justify-between bg-pink-50 px-3 py-2 rounded-md border border-pink-200">
                         <span className="text-sm text-gray-700">{service}</span>
                         <button
@@ -298,34 +294,20 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
           name="usedDiscount"
           control={control}
           render={({ field: discountField }) => {
-            const servicesArray = serviceConsumed ? serviceConsumed.split(',').filter(s => s.trim()) : [];
-            const discountsArray = discountField.value ? discountField.value.split(',').filter(d => d.trim()) : [];
-            const quantitiesArray = serviceQuantities ? serviceQuantities.split(',').filter(q => q.trim()) : [];
-
-            // Ensure arrays match services length
-            while (discountsArray.length < servicesArray.length) {
-              discountsArray.push('0');
-            }
-            while (discountsArray.length > servicesArray.length) {
-              discountsArray.pop();
-            }
-            while (quantitiesArray.length < servicesArray.length) {
-              quantitiesArray.push('1');
-            }
-            while (quantitiesArray.length > servicesArray.length) {
-              quantitiesArray.pop();
-            }
+            const servicesArray = serviceConsumed || [];
+            const discountsArray = discountField.value || [];
+            const quantitiesArray = serviceQuantities || [];
 
             const handleDiscountChange = (index: number, value: string) => {
               const newDiscounts = [...discountsArray];
               newDiscounts[index] = value;
-              discountField.onChange(newDiscounts.join(','));
+              discountField.onChange(newDiscounts);
             };
 
             const handleQuantityChange = (index: number, value: string) => {
               const newQuantities = [...quantitiesArray];
               newQuantities[index] = value;
-              setValue('serviceQuantities', newQuantities.join(','));
+              setValue('serviceQuantities', newQuantities);
             };
 
             if (servicesArray.length === 0) {
@@ -338,7 +320,7 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
 
             return (
               <div className="space-y-2 mt-2">
-                {servicesArray.map((service, index) => (
+                {servicesArray.map((service: string, index: number) => (
                   <div key={index} className="flex items-center bg-gray-50 p-3 rounded-md gap-3">
                     <span className="flex-1 text-sm text-gray-700 font-medium truncate">{service}</span>
                     <div className="flex items-center gap-1">
@@ -388,15 +370,13 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
             </span>
           </div>
         </div>
-        {serviceConsumed && (
+        {serviceConsumed && serviceConsumed.length > 0 && (
           <div className="mt-3 space-y-1">
             <p className="text-xs text-gray-500 font-medium">Desglose:</p>
-            {serviceConsumed.split(',').filter(s => s.trim()).map((serviceName, index) => {
+            {serviceConsumed.map((serviceName: string, index: number) => {
               const service = services.find(s => s.name === serviceName.trim());
-              const quantitiesArray = serviceQuantities ? serviceQuantities.split(',').filter(q => q.trim()) : [];
-              const discountsArray = usedDiscount ? usedDiscount.split(',').filter(d => d.trim()) : [];
-              const quantity = parseInt(quantitiesArray[index]) || 1;
-              const discount = parseFloat(discountsArray[index]) || 0;
+              const quantity = parseInt(serviceQuantities[index]) || 1;
+              const discount = parseFloat(usedDiscount[index]) || 0;
               const originalPrice = Number(service?.price) || 0;
               const lineTotal = originalPrice * quantity;
               const discountedPrice = lineTotal * (1 - discount / 100);
@@ -441,4 +421,4 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
       </div>
     </form>
   );
-} 
+}
