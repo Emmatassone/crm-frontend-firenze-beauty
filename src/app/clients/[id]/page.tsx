@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getClientProfileById, updateClientProfile, deleteClientProfile, type ClientProfile, type UpdateClientProfileDto } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
 
 export default function ClientDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const id = Array.isArray(params?.id) ? params.id[0] : (params?.id as string);
+  const { isViewOnly } = useAuthStore();
 
   const [client, setClient] = useState<ClientProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,7 +26,7 @@ export default function ClientDetailsPage() {
     setIsLoading(true);
     setError(null);
     getClientProfileById(id)
-      .then((data) => { 
+      .then((data) => {
         if (isMounted) {
           setClient(data);
           setEditForm({
@@ -46,10 +48,10 @@ export default function ClientDetailsPage() {
 
   const handleSave = async () => {
     if (!id || !client) return;
-    
+
     setIsSaving(true);
     setError(null);
-    
+
     try {
       const updatedClient = await updateClientProfile(id, editForm);
       setClient(updatedClient);
@@ -87,10 +89,10 @@ export default function ClientDetailsPage() {
 
   const handleDelete = async () => {
     if (!id) return;
-    
+
     setIsDeleting(true);
     setError(null);
-    
+
     try {
       await deleteClientProfile(id);
       router.push('/clients');
@@ -128,19 +130,23 @@ export default function ClientDetailsPage() {
         <div className="flex gap-2">
           {!isEditing ? (
             <>
-              <button
-                onClick={() => setIsEditing(true)}
-                className="px-4 py-2 rounded bg-pink-600 hover:bg-pink-700 text-white"
-              >
-                Editar
-              </button>
-              <button
-                onClick={confirmDelete}
-                disabled={isDeleting}
-                className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white"
-              >
-                {isDeleting ? 'Eliminando...' : 'Borrar'}
-              </button>
+              {!isViewOnly && (
+                <>
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="px-4 py-2 rounded bg-pink-600 hover:bg-pink-700 text-white"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={confirmDelete}
+                    disabled={isDeleting}
+                    className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white"
+                  >
+                    {isDeleting ? 'Eliminando...' : 'Borrar'}
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => router.back()}
                 className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800"
@@ -322,7 +328,7 @@ export default function ClientDetailsPage() {
               Confirmar Eliminación
             </h3>
             <p className="text-gray-600 mb-6">
-              ¿Estás seguro de que deseas eliminar el cliente "{client.name || client.phoneNumber}"? 
+              ¿Estás seguro de que deseas eliminar el cliente "{client.name || client.phoneNumber}"?
               Esta acción no se puede deshacer.
             </p>
             <div className="flex gap-3 justify-end">

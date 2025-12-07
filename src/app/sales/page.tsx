@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getProductSales, ProductSale } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
 import SaleList from './SaleList';
 
 function SalesPage() {
   const [sales, setSales] = useState<ProductSale[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { isViewOnly } = useAuthStore();
 
   useEffect(() => {
     async function fetchSales() {
@@ -40,15 +42,17 @@ function SalesPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Ventas de Productos</h1>
-        <Link href="/sales/new" className="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">
-          Registrar Nueva Venta
-        </Link>
+        {!isViewOnly && (
+          <Link href="/sales/new" className="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">
+            Registrar Nueva Venta
+          </Link>
+        )}
       </div>
 
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
           <strong className="font-bold">Error: </strong>
-           <span className="block sm:inline">{error}</span>
+          <span className="block sm:inline">{error}</span>
         </div>
       )}
 

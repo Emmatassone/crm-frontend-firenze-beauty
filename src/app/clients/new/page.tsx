@@ -1,16 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SubmitHandler } from 'react-hook-form';
 import { createClientProfile, CreateClientProfileDto } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
 import ClientForm, { ClientFormValues } from '../ClientForm';
 
 export default function NewClientPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { isViewOnly } = useAuthStore();
+
+  // Redirect view-only users
+  useEffect(() => {
+    if (isViewOnly) {
+      router.replace('/clients');
+    }
+  }, [isViewOnly, router]);
+
+  // Don't render form for view-only users
+  if (isViewOnly) {
+    return null;
+  }
 
   const onSubmit: SubmitHandler<ClientFormValues> = async (data) => {
     setIsLoading(true);
@@ -27,7 +41,7 @@ export default function NewClientPage() {
         clientAllergies: data.clientAllergies === '' ? undefined : data.clientAllergies,
       };
       const newClient = await createClientProfile(payload);
-      router.push(`/clients/${newClient.id}`); 
+      router.push(`/clients/${newClient.id}`);
     } catch (e: any) {
       setError(e.message || 'Error al crear cliente.');
     }
@@ -49,8 +63,8 @@ export default function NewClientPage() {
         </div>
       )}
 
-      <ClientForm 
-        onSubmit={onSubmit} 
+      <ClientForm
+        onSubmit={onSubmit}
         isLoading={isLoading}
         defaultValues={{
           dateOfBirth: new Date().toISOString(),

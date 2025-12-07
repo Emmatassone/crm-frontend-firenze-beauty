@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createProductSale, CreateProductSaleDto, getClientProfiles, ClientProfile } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
 import SaleForm from '../SaleForm';
 
 export default function NewSalePage() {
@@ -11,6 +12,14 @@ export default function NewSalePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clients, setClients] = useState<ClientProfile[]>([]);
+  const { isViewOnly } = useAuthStore();
+
+  // Redirect view-only users
+  useEffect(() => {
+    if (isViewOnly) {
+      router.replace('/sales');
+    }
+  }, [isViewOnly, router]);
 
   useEffect(() => {
     async function fetchClients() {
@@ -24,6 +33,11 @@ export default function NewSalePage() {
     }
     fetchClients();
   }, []);
+
+  // Don't render form for view-only users
+  if (isViewOnly) {
+    return null;
+  }
 
   const onSubmit = async (data: CreateProductSaleDto) => {
     setIsLoading(true);

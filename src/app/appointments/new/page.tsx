@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SubmitHandler } from 'react-hook-form';
 import { createAppointment, CreateAppointmentDto, getClientProfiles, ClientProfile } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
 import AppointmentForm, { AppointmentFormValues } from '../AppointmentForm';
 
 export default function NewAppointmentPage() {
@@ -12,6 +13,14 @@ export default function NewAppointmentPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clients, setClients] = useState<ClientProfile[]>([]);
+  const { isViewOnly } = useAuthStore();
+
+  // Redirect view-only users
+  useEffect(() => {
+    if (isViewOnly) {
+      router.replace('/appointments');
+    }
+  }, [isViewOnly, router]);
 
   useEffect(() => {
     async function fetchClients() {
@@ -25,6 +34,11 @@ export default function NewAppointmentPage() {
     }
     fetchClients();
   }, []);
+
+  // Don't render form for view-only users
+  if (isViewOnly) {
+    return null;
+  }
 
   const onSubmit: SubmitHandler<AppointmentFormValues> = async (data) => {
     setIsLoading(true);
@@ -67,8 +81,8 @@ export default function NewAppointmentPage() {
         </div>
       )}
 
-      <AppointmentForm 
-        onSubmit={onSubmit} 
+      <AppointmentForm
+        onSubmit={onSubmit}
         isLoading={isLoading}
         clients={clients}
       />
