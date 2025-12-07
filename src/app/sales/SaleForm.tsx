@@ -41,7 +41,7 @@ export default function SaleForm({ onSubmit, isLoading, defaultValues, clients =
                     getEmployees(),
                     getProducts(),
                 ]);
-                setEmployees(employeeData);
+                setEmployees(employeeData.filter(e => e.status === 'active'));
                 setProducts(productData);
             } catch (e) {
                 console.error("Error al cargar datos", e);

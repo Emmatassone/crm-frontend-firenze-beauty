@@ -16,9 +16,12 @@ export default function EmployeeList({ initialEmployees }: EmployeeListProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredEmployees = useMemo(() => {
-    if (!searchTerm) return initialEmployees;
+    // First filter out retired employees
+    const nonRetiredEmployees = initialEmployees.filter(e => e.status !== 'retired');
+
+    if (!searchTerm) return nonRetiredEmployees;
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
-    return initialEmployees.filter(employee => 
+    return nonRetiredEmployees.filter(employee =>
       (employee.name.toLowerCase().includes(lowerCaseSearchTerm)) ||
       (employee.jobTitle.toLowerCase().includes(lowerCaseSearchTerm)) ||
       (employee.email.toLowerCase().includes(lowerCaseSearchTerm))
@@ -28,7 +31,7 @@ export default function EmployeeList({ initialEmployees }: EmployeeListProps) {
   return (
     <div>
       <div className="mb-4">
-        <input 
+        <input
           type="text"
           placeholder="Buscar por nombre, puesto, email..."
           className="mt-1 block w-full md:w-1/2 lg:w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
@@ -41,7 +44,7 @@ export default function EmployeeList({ initialEmployees }: EmployeeListProps) {
         <p className="text-gray-600">No se encontraron empleados con el término "{searchTerm}".</p>
       )}
       {filteredEmployees.length === 0 && !searchTerm && initialEmployees.length > 0 && (
-         <p className="text-gray-600">No hay empleados que coincidan con su búsqueda actual, pero sí hay empleados registrados.</p>
+        <p className="text-gray-600">No hay empleados que coincidan con su búsqueda actual, pero sí hay empleados registrados.</p>
       )}
 
       {filteredEmployees.length > 0 && (
@@ -60,21 +63,19 @@ export default function EmployeeList({ initialEmployees }: EmployeeListProps) {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredEmployees.map((employee, index) => (
-                <tr 
-                  key={employee.id} 
-                  className={`hover:bg-pink-50 transition duration-150 ease-in-out ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                  }`}
+                <tr
+                  key={employee.id}
+                  className={`hover:bg-pink-50 transition duration-150 ease-in-out ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                    }`}
                 >
                   <td className={tdStyle}>{employee.name}</td>
                   <td className={tdStyle}>{employee.email}</td>
                   <td className={tdStyle}>{employee.jobTitle}</td>
                   <td className={tdStyle}>
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      employee.status === 'active' ? 'bg-green-100 text-green-800' : 
-                      employee.status === 'suspended' ? 'bg-yellow-100 text-yellow-800' : 
-                      'bg-red-100 text-red-800'
-                    }`}>
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${employee.status === 'active' ? 'bg-green-100 text-green-800' :
+                        employee.status === 'suspended' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                      }`}>
                       {employee.status}
                     </span>
                   </td>

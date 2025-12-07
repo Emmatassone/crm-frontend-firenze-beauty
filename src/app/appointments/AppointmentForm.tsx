@@ -45,7 +45,7 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
           getEmployees(),
           getServices(),
         ]);
-        setEmployees(employeeData);
+        setEmployees(employeeData.filter(e => e.status === 'active'));
         setServices(serviceData);
       } catch (e) {
         console.error("Error al cargar datos para el formulario", e);
