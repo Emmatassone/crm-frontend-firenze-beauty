@@ -94,6 +94,7 @@ export interface Appointment {
   serviceConsumed: string[];
   serviceQuantities?: string[];
   usedDiscount?: string[];
+  servicePrices?: number[];
   additionalComments?: string;
   totalAmount?: number;
   createdAt: string;

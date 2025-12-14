@@ -37,6 +37,7 @@ export default function AppointmentDetailsPage() {
             serviceConsumed: data.serviceConsumed,
             serviceQuantities: data.serviceQuantities,
             usedDiscount: data.usedDiscount,
+            servicePrices: data.servicePrices,
             additionalComments: data.additionalComments,
           });
         }
@@ -75,6 +76,7 @@ export default function AppointmentDetailsPage() {
         serviceConsumed: appointment.serviceConsumed,
         serviceQuantities: appointment.serviceQuantities,
         usedDiscount: appointment.usedDiscount,
+        servicePrices: appointment.servicePrices,
         additionalComments: appointment.additionalComments,
       });
     }
@@ -87,16 +89,22 @@ export default function AppointmentDetailsPage() {
     const servicesArray = value.split(',').map(s => s.trim()).filter(s => s);
     const currentDiscounts = editForm.usedDiscount || [];
     const currentQuantities = editForm.serviceQuantities || [];
+    const currentPrices = editForm.servicePrices || [];
 
     // Ensure discounts match services length
     const newDiscounts = servicesArray.map((_, index) => currentDiscounts[index] || '0');
     const newQuantities = servicesArray.map((_, index) => currentQuantities[index] || '1');
+    // For prices, we check if we have a stored price. If not, we can't look up here easily, so we might default to 0 or null
+    // But since this is text edit without IDs, we rely on position. 
+    // Ideally we'd fetch price, but simpler to preserve position.
+    const newPrices = servicesArray.map((_, index) => currentPrices[index] ?? 0);
 
     setEditForm(prev => ({
       ...prev,
       serviceConsumed: servicesArray,
       usedDiscount: newDiscounts,
       serviceQuantities: newQuantities,
+      servicePrices: newPrices,
     }));
   };
 

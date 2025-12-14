@@ -20,6 +20,7 @@ const appointmentSchema = z.object({
   serviceConsumed: z.array(z.string()).min(1, 'El servicio es requerido'),
   serviceQuantities: z.array(z.string()).optional(),
   usedDiscount: z.array(z.string()).optional(),
+  servicePrices: z.array(z.number()).optional(),
   additionalComments: z.string().optional(),
   totalAmount: z.number().optional(),
 });
@@ -75,7 +76,8 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
     formState: { errors },
     setValue,
     watch,
-    control
+    control,
+    getValues
   } = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentSchema),
     defaultValues: {
@@ -92,6 +94,7 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
       serviceConsumed: defaultValues?.serviceConsumed || [],
       serviceQuantities: defaultValues?.serviceQuantities || [],
       usedDiscount: defaultValues?.usedDiscount || [],
+      servicePrices: defaultValues?.servicePrices || [],
     },
   });
 
@@ -99,6 +102,7 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
   const serviceConsumed = watch('serviceConsumed') || [];
   const serviceQuantities = watch('serviceQuantities') || [];
   const usedDiscount = watch('usedDiscount') || [];
+  const servicePrices = watch('servicePrices') || [];
 
   // Calculate total price based on selected services, quantities, and discounts
   const calculateTotalPrice = () => {
@@ -107,16 +111,22 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
     let total = 0;
     let originalTotal = 0;
     serviceConsumed.forEach((serviceName: string, index: number) => {
-      const service = services.find(s => s.name === serviceName.trim());
-      if (service) {
-        const quantity = parseInt(serviceQuantities[index]) || 1;
-        const discount = parseFloat(usedDiscount[index]) || 0;
-        const price = Number(service.price) || 0;
-        const lineOriginal = price * quantity;
-        const discountedPrice = lineOriginal * (1 - discount / 100);
-        total += discountedPrice;
-        originalTotal += lineOriginal;
+      let price = 0;
+      // Use stored price if available, otherwise fallback to current master price
+      if (servicePrices && servicePrices[index] !== undefined && servicePrices[index] !== null) {
+        price = Number(servicePrices[index]);
+      } else {
+        const service = services.find(s => s.name === serviceName.trim());
+        price = Number(service?.price) || 0;
       }
+
+      const quantity = parseInt(serviceQuantities[index]) || 1;
+      const discount = parseFloat(usedDiscount[index]) || 0;
+
+      const lineOriginal = price * quantity;
+      const discountedPrice = lineOriginal * (1 - discount / 100);
+      total += discountedPrice;
+      originalTotal += lineOriginal;
     });
 
     return { total, originalTotal };
@@ -140,32 +150,16 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
     }
   }, [selectedClientId, clients, setValue]);
 
-  // Sync discounts and quantities with services
+  // Sync logic moved to handlers to ensure correct index alignment
+  // Only ensuring defaults if needed
   useEffect(() => {
-    if (serviceConsumed && serviceConsumed.length > 0) {
-      const currentDiscounts = watch('usedDiscount') || [];
-      const currentQuantities = watch('serviceQuantities') || [];
-
-      // Adjust discounts array to match services length
-      if (serviceConsumed.length !== currentDiscounts.length) {
-        const newDiscounts = serviceConsumed.map((_: string, index: number) =>
-          currentDiscounts[index] || '0'
-        );
-        setValue('usedDiscount', newDiscounts);
-      }
-
-      // Adjust quantities array to match services length
-      if (serviceConsumed.length !== currentQuantities.length) {
-        const newQuantities = serviceConsumed.map((_: string, index: number) =>
-          currentQuantities[index] || '1'
-        );
-        setValue('serviceQuantities', newQuantities);
-      }
-    } else {
-      setValue('usedDiscount', []);
-      setValue('serviceQuantities', []);
+    if ((!serviceConsumed || serviceConsumed.length === 0)) {
+      // Clear others if services cleared
+      if ((getValues('usedDiscount') || []).length > 0) setValue('usedDiscount', []);
+      if ((getValues('serviceQuantities') || []).length > 0) setValue('serviceQuantities', []);
+      if ((getValues('servicePrices') || []).length > 0) setValue('servicePrices', []);
     }
-  }, [serviceConsumed, setValue, watch]);
+  }, [serviceConsumed, setValue, getValues]);
 
   const inputStyle = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm";
   const labelStyle = "block text-sm font-medium text-gray-700";
@@ -232,12 +226,34 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
               if (serviceName) {
                 const newServices = [...servicesArray, serviceName];
                 field.onChange(newServices);
+
+                // Add default quantity, discount, and PRICE
+                const currentQuantities = getValues('serviceQuantities') || [];
+                const currentDiscounts = getValues('usedDiscount') || [];
+                const currentPrices = getValues('servicePrices') || [];
+
+                setValue('serviceQuantities', [...currentQuantities, '1']);
+                setValue('usedDiscount', [...currentDiscounts, '0']);
+
+                // Find price
+                const s = services.find(srv => srv.name === serviceName);
+                const price = s ? Number(s.price) : 0;
+                setValue('servicePrices', [...currentPrices, price]);
               }
             };
 
             const handleRemoveService = (index: number) => {
               const newServices = servicesArray.filter((_: string, i: number) => i !== index);
               field.onChange(newServices);
+
+              // Remove from quantities, discounts, and prices explicitly
+              const currentQuantities = getValues('serviceQuantities') || [];
+              const currentDiscounts = getValues('usedDiscount') || [];
+              const currentPrices = getValues('servicePrices') || [];
+
+              setValue('serviceQuantities', currentQuantities.filter((_: string, i: number) => i !== index));
+              setValue('usedDiscount', currentDiscounts.filter((_: string, i: number) => i !== index));
+              setValue('servicePrices', currentPrices.filter((_: number, i: number) => i !== index));
             };
 
             return (
@@ -298,6 +314,13 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
             const discountsArray = discountField.value || [];
             const quantitiesArray = serviceQuantities || [];
 
+            const handlePriceChange = (index: number, value: string) => {
+              const newPrices = [...(servicePrices || [])];
+              // Default to 0 if NaN, but try to keep valid input
+              newPrices[index] = parseFloat(value) || 0;
+              setValue('servicePrices', newPrices);
+            };
+
             const handleDiscountChange = (index: number, value: string) => {
               // Allow digits and optional decimal point
               if (value !== '' && !/^\d*\.?\d*$/.test(value)) return;
@@ -334,52 +357,69 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
 
             return (
               <div className="space-y-2 mt-2">
-                {servicesArray.map((service: string, index: number) => (
-                  <div key={index} className="flex items-center bg-gray-50 p-3 rounded-md gap-3">
-                    <span className="flex-1 text-sm text-gray-700 font-medium truncate">{service}</span>
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-500">Cant:</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="99"
-                        value={quantitiesArray[index] || '1'}
-                        onChange={(e) => handleQuantityChange(index, e.target.value)}
-                        className="w-14 px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-sm text-center"
-                      />
+                {servicesArray.map((serviceName: string, index: number) => {
+                  const currentPrice = servicePrices && servicePrices[index] !== undefined ? servicePrices[index] : 0;
+
+                  return (
+                    <div key={index} className="flex items-center bg-gray-50 p-3 rounded-md gap-3 flex-wrap">
+                      <span className="flex-1 text-sm text-gray-700 font-medium truncate min-w-[150px]">{serviceName}</span>
+
+                      <div className="flex items-center gap-1">
+                        <label className="text-xs text-gray-500">Precio:</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={currentPrice}
+                          onChange={(e) => handlePriceChange(index, e.target.value)}
+                          className="w-20 px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-sm text-right"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <label className="text-xs text-gray-500">Cant:</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="99"
+                          value={quantitiesArray[index] || '1'}
+                          onChange={(e) => handleQuantityChange(index, e.target.value)}
+                          className="w-14 px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-sm text-center"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <label className="text-xs text-gray-500">Desc:</label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          value={discountsArray[index] ?? '0'}
+                          onChange={(e) => handleDiscountChange(index, e.target.value)}
+                          onFocus={(e) => {
+                            if (e.target.value === '0') {
+                              handleDiscountChange(index, '');
+                            } else {
+                              e.target.select();
+                            }
+                          }}
+                          onBlur={(e) => {
+                            if (e.target.value === '') {
+                              handleDiscountChange(index, '0');
+                            }
+                          }}
+                          placeholder="0"
+                          className="w-20 px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-sm text-right"
+                          list={`discount-options-${index}`}
+                        />
+                        <datalist id={`discount-options-${index}`}>
+                          {[0, 5, 10, 15, 20, 25, 30, 40, 50].map((value) => (
+                            <option key={value} value={value} />
+                          ))}
+                        </datalist>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-500">Desc:</label>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        autoComplete="off"
-                        value={discountsArray[index] ?? '0'}
-                        onChange={(e) => handleDiscountChange(index, e.target.value)}
-                        onFocus={(e) => {
-                          if (e.target.value === '0') {
-                            handleDiscountChange(index, '');
-                          } else {
-                            e.target.select();
-                          }
-                        }}
-                        onBlur={(e) => {
-                          if (e.target.value === '') {
-                            handleDiscountChange(index, '0');
-                          }
-                        }}
-                        placeholder="0"
-                        className="w-20 px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-sm text-right"
-                        list={`discount-options-${index}`}
-                      />
-                      <datalist id={`discount-options-${index}`}>
-                        {[0, 5, 10, 15, 20, 25, 30, 40, 50].map((value) => (
-                          <option key={value} value={value} />
-                        ))}
-                      </datalist>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             );
           }}
@@ -409,7 +449,10 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
               const service = services.find(s => s.name === serviceName.trim());
               const quantity = parseInt(serviceQuantities[index]) || 1;
               const discount = parseFloat(usedDiscount[index]) || 0;
-              const originalPrice = Number(service?.price) || 0;
+              const storedPrice = servicePrices[index];
+              const originalPrice = (storedPrice !== undefined && storedPrice !== null)
+                ? Number(storedPrice)
+                : (Number(service?.price) || 0);
               const lineTotal = originalPrice * quantity;
               const discountedPrice = lineTotal * (1 - discount / 100);
 
