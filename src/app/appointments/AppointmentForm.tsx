@@ -299,8 +299,22 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
             const quantitiesArray = serviceQuantities || [];
 
             const handleDiscountChange = (index: number, value: string) => {
+              // Allow digits and optional decimal point
+              if (value !== '' && !/^\d*\.?\d*$/.test(value)) return;
+
+              let cleanValue = value;
+              // Remove leading zero if it's not the only character and not followed by a decimal point
+              if (cleanValue.length > 1 && cleanValue.startsWith('0') && cleanValue[1] !== '.') {
+                cleanValue = cleanValue.substring(1);
+              }
+
+              // Ensure max value is 100
+              if (parseFloat(cleanValue) > 100) {
+                cleanValue = '100';
+              }
+
               const newDiscounts = [...discountsArray];
-              newDiscounts[index] = value;
+              newDiscounts[index] = cleanValue;
               discountField.onChange(newDiscounts);
             };
 
@@ -336,15 +350,33 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
                     </div>
                     <div className="flex items-center gap-1">
                       <label className="text-xs text-gray-500">Desc:</label>
-                      <select
-                        value={discountsArray[index] || '0'}
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        value={discountsArray[index] ?? '0'}
                         onChange={(e) => handleDiscountChange(index, e.target.value)}
-                        className="px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-sm"
-                      >
-                        {Array.from({ length: 21 }, (_, i) => i * 5).map(value => (
-                          <option key={value} value={value.toString()}>{value}%</option>
+                        onFocus={(e) => {
+                          if (e.target.value === '0') {
+                            handleDiscountChange(index, '');
+                          } else {
+                            e.target.select();
+                          }
+                        }}
+                        onBlur={(e) => {
+                          if (e.target.value === '') {
+                            handleDiscountChange(index, '0');
+                          }
+                        }}
+                        placeholder="0"
+                        className="w-20 px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-sm text-right"
+                        list={`discount-options-${index}`}
+                      />
+                      <datalist id={`discount-options-${index}`}>
+                        {[0, 5, 10, 15, 20, 25, 30, 40, 50].map((value) => (
+                          <option key={value} value={value} />
                         ))}
-                      </select>
+                      </datalist>
                     </div>
                   </div>
                 ))}
@@ -358,7 +390,7 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
       {/* Total Price Display */}
       <div className="bg-gradient-to-r from-pink-50 to-pink-100 p-4 rounded-lg border border-pink-200">
         <div className="flex justify-between items-center">
-          <span className="text-lg font-semibold text-gray-700">Precio Total:</span>
+          <span className="text-lg font-semibold text-gray-700">Precio Final:</span>
           <div className="flex flex-col items-end">
             {originalTotalPrice > totalPrice && (
               <span className="text-sm text-gray-500 line-through">

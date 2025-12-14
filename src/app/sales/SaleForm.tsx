@@ -202,11 +202,61 @@ export default function SaleForm({ onSubmit, isLoading, defaultValues, clients =
                         </div>
                         <div className="w-28">
                             <label className="block text-xs font-medium text-gray-500">Desc. (%)</label>
-                            <select {...register(`items.${index}.discount`)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm">
-                                {Array.from({ length: 21 }, (_, i) => i * 5).map(v => (
-                                    <option key={v} value={v.toString()}>{v}%</option>
-                                ))}
-                            </select>
+                            <Controller
+                                name={`items.${index}.discount`}
+                                control={control}
+                                render={({ field }) => {
+                                    const handleDiscountChange = (val: string) => {
+                                        // Allow digits and optional decimal point
+                                        if (val !== '' && !/^\d*\.?\d*$/.test(val)) return;
+
+                                        let cleanValue = val;
+                                        // Remove leading zero if it's not the only character and not followed by a decimal point
+                                        if (cleanValue.length > 1 && cleanValue.startsWith('0') && cleanValue[1] !== '.') {
+                                            cleanValue = cleanValue.substring(1);
+                                        }
+
+                                        // Ensure max value is 100
+                                        if (parseFloat(cleanValue) > 100) {
+                                            cleanValue = '100';
+                                        }
+
+                                        field.onChange(cleanValue);
+                                    };
+
+                                    return (
+                                        <>
+                                            <input
+                                                type="text"
+                                                inputMode="decimal"
+                                                autoComplete="off"
+                                                value={field.value ?? '0'}
+                                                onChange={(e) => handleDiscountChange(e.target.value)}
+                                                onFocus={(e) => {
+                                                    if (e.target.value === '0') {
+                                                        handleDiscountChange('');
+                                                    } else {
+                                                        e.target.select();
+                                                    }
+                                                }}
+                                                onBlur={(e) => {
+                                                    if (e.target.value === '') {
+                                                        handleDiscountChange('0');
+                                                    }
+                                                }}
+                                                placeholder="0"
+                                                className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm text-right"
+                                                list={`sale-discount-options-${index}`}
+                                            />
+                                            <datalist id={`sale-discount-options-${index}`}>
+                                                {[0, 5, 10, 15, 20, 25, 30, 40, 50].map((value) => (
+                                                    <option key={value} value={value} />
+                                                ))}
+                                            </datalist>
+                                        </>
+                                    );
+                                }}
+                            />
                         </div>
                         <button type="button" onClick={() => removeItem(index)} className="text-red-600 hover:text-red-800 mb-2">
                             ✕
@@ -218,7 +268,7 @@ export default function SaleForm({ onSubmit, isLoading, defaultValues, clients =
 
             <div className="bg-gradient-to-r from-pink-50 to-pink-100 p-4 rounded-lg border border-pink-200">
                 <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold text-gray-700">Total a Pagar:</span>
+                    <span className="text-lg font-semibold text-gray-700">Precio Final:</span>
                     <div className="flex flex-col items-end">
                         {originalTotal > total && (
                             <span className="text-sm text-gray-500 line-through">${originalTotal.toFixed(2)}</span>
@@ -226,6 +276,43 @@ export default function SaleForm({ onSubmit, isLoading, defaultValues, clients =
                         <span className="text-2xl font-bold text-pink-600">${total.toFixed(2)}</span>
                     </div>
                 </div>
+                {items && items.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                        <p className="text-xs text-gray-500 font-medium">Desglose:</p>
+                        {items.map((item, index) => {
+                            const product = products.find(p => p.id === item.productId);
+                            const productName = product ? product.productName : '';
+                            const quantity = item.quantity || 0;
+                            const price = item.price || 0;
+                            const discount = parseFloat(item.discount || '0');
+
+                            const lineOriginal = price * quantity;
+                            const lineFinal = lineOriginal * (1 - discount / 100);
+
+                            if (!item.productId) return null;
+
+                            return (
+                                <div key={index} className="flex justify-between text-sm text-gray-600">
+                                    <span>
+                                        {productName}
+                                        {quantity > 1 && <span className="text-pink-500 font-medium ml-1">×{quantity}</span>}
+                                    </span>
+                                    <span>
+                                        {discount > 0 ? (
+                                            <>
+                                                <span className="line-through text-gray-400 mr-2">${lineOriginal.toFixed(2)}</span>
+                                                <span className="text-pink-600">${lineFinal.toFixed(2)}</span>
+                                                <span className="text-green-600 ml-1">(-{discount}%)</span>
+                                            </>
+                                        ) : (
+                                            <span>${lineOriginal.toFixed(2)}</span>
+                                        )}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
             <div>
