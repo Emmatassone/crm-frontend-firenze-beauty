@@ -173,9 +173,12 @@ export interface Employee {
   vacationTaken?: number;
   vacationBalance?: number;
   lastVacationResetYear?: number;
+  monthlySalary?: number;
+  weeklyWorkingHours?: number;
   createdAt: string;
   updatedAt: string;
 }
+
 
 export type CreateEmployeeDto = Omit<Employee, 'id' | 'createdAt' | 'updatedAt' | 'totalVacationDays' | 'vacationTaken' | 'vacationBalance' | 'lastVacationResetYear'> & { password?: string };
 export type UpdateEmployeeDto = Partial<Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>> & { password?: string };

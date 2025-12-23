@@ -19,6 +19,8 @@ export default function EmployeeDetailsPage() {
   const [editableStatus, setEditableStatus] = useState<Employee['status'] | ''>('');
   const [editableHireDate, setEditableHireDate] = useState<string>('');
   const [editableEmploymentType, setEditableEmploymentType] = useState<Employee['employmentType'] | ''>('');
+  const [editableMonthlySalary, setEditableMonthlySalary] = useState<string>('');
+  const [editableWeeklyWorkingHours, setEditableWeeklyWorkingHours] = useState<string>('');
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -42,6 +44,8 @@ export default function EmployeeDetailsPage() {
           setEditableStatus(data.status);
           setEditableHireDate(data.hireDate || '');
           setEditableEmploymentType(data.employmentType || 'fullTime');
+          setEditableMonthlySalary(data.monthlySalary?.toString() || '');
+          setEditableWeeklyWorkingHours(data.weeklyWorkingHours?.toString() || '');
         }
       })
       .catch((err) => { if (isMounted) setError(err?.message || 'No se pudo cargar el empleado'); })
@@ -49,15 +53,19 @@ export default function EmployeeDetailsPage() {
     return () => { isMounted = false; };
   }, [id]);
 
-  const handleUpdate = async (field: 'status' | 'hireDate' | 'employmentType') => {
+  const handleUpdate = async (field: 'status' | 'hireDate' | 'employmentType' | 'monthlySalary' | 'weeklyWorkingHours') => {
     if (!id || !employee) return;
 
     let value: any;
     if (field === 'status') value = editableStatus;
     else if (field === 'hireDate') value = editableHireDate;
     else if (field === 'employmentType') value = editableEmploymentType;
+    else if (field === 'monthlySalary') value = editableMonthlySalary ? parseFloat(editableMonthlySalary) : null;
+    else if (field === 'weeklyWorkingHours') value = editableWeeklyWorkingHours ? parseInt(editableWeeklyWorkingHours) : null;
 
-    if (value === (employee as any)[field]) return;
+    // Compare with current value
+    const currentValue = (employee as any)[field];
+    if (value === currentValue || (value === null && currentValue === undefined)) return;
 
     setIsSaving(true);
     setSaveError(null);
@@ -284,6 +292,75 @@ export default function EmployeeDetailsPage() {
         <div><div className="text-sm text-gray-500">Nivel</div><div className="text-lg text-gray-900">{employee.level || 'N/D'}</div></div>
         <div><div className="text-sm text-gray-500">Teléfono</div><div className="text-lg text-gray-900">{employee.phoneNumber || 'N/D'}</div></div>
         <div><div className="text-sm text-gray-500">Dirección</div><div className="text-lg text-gray-900">{employee.address || 'N/D'}</div></div>
+
+        {/* Monthly Salary */}
+        <div>
+          <div className="text-sm text-gray-500">Salario Mensual</div>
+          {canAccessAnalytics ? (
+            <div className="flex items-center gap-3 mt-1">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editableMonthlySalary}
+                  onChange={(e) => setEditableMonthlySalary(e.target.value)}
+                  className="pl-7 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-sm w-40"
+                  disabled={isSaving}
+                  placeholder="0.00"
+                />
+              </div>
+              {editableMonthlySalary !== (employee.monthlySalary?.toString() || '') && (
+                <button
+                  onClick={() => handleUpdate('monthlySalary')}
+                  disabled={isSaving}
+                  className="px-3 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 disabled:opacity-50 text-sm font-medium"
+                >
+                  {isSaving ? 'Guardando...' : 'Guardar'}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="text-lg text-gray-900">
+              {employee.monthlySalary ? `$${Number(employee.monthlySalary).toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : 'N/D'}
+            </div>
+          )}
+        </div>
+
+        {/* Weekly Working Hours */}
+        <div>
+          <div className="text-sm text-gray-500">Horas Semanales</div>
+          {canAccessAnalytics ? (
+            <div className="flex items-center gap-3 mt-1">
+              <input
+                type="number"
+                min="1"
+                max="168"
+                value={editableWeeklyWorkingHours}
+                onChange={(e) => setEditableWeeklyWorkingHours(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-sm w-24"
+                disabled={isSaving}
+                placeholder="0"
+              />
+              <span className="text-sm text-gray-500">hs/semana</span>
+              {editableWeeklyWorkingHours !== (employee.weeklyWorkingHours?.toString() || '') && (
+                <button
+                  onClick={() => handleUpdate('weeklyWorkingHours')}
+                  disabled={isSaving}
+                  className="px-3 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 disabled:opacity-50 text-sm font-medium"
+                >
+                  {isSaving ? 'Guardando...' : 'Guardar'}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="text-lg text-gray-900">
+              {employee.weeklyWorkingHours ? `${employee.weeklyWorkingHours} hs/semana` : 'N/D'}
+            </div>
+          )}
+        </div>
+
         <div>
           <div className="text-sm text-gray-500">Fecha de Nacimiento</div>
           <div className="text-lg text-gray-900">
