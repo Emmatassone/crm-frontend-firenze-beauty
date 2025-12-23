@@ -56,6 +56,8 @@ export default function EmployeeList({ initialEmployees }: EmployeeListProps) {
                 <th scope="col" className={thStyle}>Correo Electrónico</th>
                 <th scope="col" className={thStyle}>Puesto</th>
                 <th scope="col" className={thStyle}>Estado</th>
+                <th scope="col" className={thStyle}>Fecha Contratación</th>
+                <th scope="col" className={thStyle}>Tipo Empleo</th>
                 <th scope="col" className={thStyle}>Nivel</th>
                 <th scope="col" className={thStyle}>Teléfono</th>
                 <th scope="col" className={thStyle}>Acciones</th>
@@ -73,11 +75,24 @@ export default function EmployeeList({ initialEmployees }: EmployeeListProps) {
                   <td className={tdStyle}>{employee.jobTitle}</td>
                   <td className={tdStyle}>
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${employee.status === 'active' ? 'bg-green-100 text-green-800' :
-                        employee.status === 'suspended' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
+                      employee.status === 'suspended' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
                       }`}>
                       {employee.status}
                     </span>
+                  </td>
+                  <td className={tdStyle}>
+                    {employee.hireDate ? (() => {
+                      const date = new Date(employee.hireDate);
+                      const day = String(date.getUTCDate()).padStart(2, '0');
+                      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                      const year = date.getUTCFullYear();
+                      return `${day}/${month}/${year}`;
+                    })() : naDisplay}
+                  </td>
+                  <td className={tdStyle}>
+                    {employee.employmentType === 'fullTime' ? 'Full Time' :
+                      employee.employmentType === 'partTime' ? 'Part Time' : naDisplay}
                   </td>
                   <td className={tdStyle}>{employee.level || naDisplay}</td>
                   <td className={tdStyle}>{employee.phoneNumber || naDisplay}</td>

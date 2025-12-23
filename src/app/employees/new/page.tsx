@@ -17,9 +17,9 @@ export default function NewEmployeePage() {
     setError(null);
 
     if (data.password === '') {
-        setError('La contraseña es requerida para nuevos empleados.');
-        setIsLoading(false);
-        return;
+      setError('La contraseña es requerida para nuevos empleados.');
+      setIsLoading(false);
+      return;
     }
 
     try {
@@ -29,7 +29,9 @@ export default function NewEmployeePage() {
         phoneNumber: data.phoneNumber === '' ? undefined : data.phoneNumber,
         address: data.address === '' ? undefined : data.address,
         dateOfBirth: data.dateOfBirth ? data.dateOfBirth.split('-').reverse().join('-') : undefined,
-        password: data.password, 
+        hireDate: data.hireDate === '' ? undefined : data.hireDate,
+        employmentType: data.employmentType === '' ? undefined : (data.employmentType as 'fullTime' | 'partTime'),
+        password: data.password,
       };
       const newEmployee = await createEmployee(payload);
       router.push(`/employees/${newEmployee.id}`);
@@ -54,13 +56,14 @@ export default function NewEmployeePage() {
         </div>
       )}
 
-      <EmployeeForm 
-        onSubmit={onSubmit} 
-        isLoading={isLoading} 
-        defaultValues={{ 
+      <EmployeeForm
+        onSubmit={onSubmit}
+        isLoading={isLoading}
+        defaultValues={{
           status: 'active',
-        }} 
+          employmentType: 'fullTime',
+        }}
       />
     </div>
   );
-} 
+}

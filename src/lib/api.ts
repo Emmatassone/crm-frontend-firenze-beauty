@@ -163,15 +163,21 @@ export interface Employee {
   email: string;
   jobTitle: string;
   status: 'active' | 'suspended' | 'retired';
+  employmentType?: 'fullTime' | 'partTime';
+  hireDate?: string;
   level?: string;
   phoneNumber?: string;
   address?: string;
   dateOfBirth?: string;
+  totalVacationDays?: number;
+  vacationTaken?: number;
+  vacationBalance?: number;
+  lastVacationResetYear?: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export type CreateEmployeeDto = Omit<Employee, 'id' | 'createdAt' | 'updatedAt'> & { password?: string };
+export type CreateEmployeeDto = Omit<Employee, 'id' | 'createdAt' | 'updatedAt' | 'totalVacationDays' | 'vacationTaken' | 'vacationBalance' | 'lastVacationResetYear'> & { password?: string };
 export type UpdateEmployeeDto = Partial<Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>> & { password?: string };
 
 // --- Employee API Functions ---
@@ -180,6 +186,14 @@ export const getEmployeeById = (id: string): Promise<Employee> => request<Employ
 export const createEmployee = (data: CreateEmployeeDto): Promise<Employee> => request<Employee>('/employees', { method: 'POST', body: JSON.stringify(data) });
 export const updateEmployee = (id: string, data: UpdateEmployeeDto): Promise<Employee> => request<Employee>(`/employees/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 export const deleteEmployee = (id: string): Promise<void> => request<void>(`/employees/${id}`, { method: 'DELETE' });
+
+// Vacation API Functions
+export interface CalculateVacationsResponse {
+  updated: number;
+  employees: Employee[];
+}
+export const calculateAllVacations = (): Promise<CalculateVacationsResponse> => request<CalculateVacationsResponse>('/employees/vacations/calculate', { method: 'POST' });
+export const deductVacation = (id: string, days: number): Promise<Employee> => request<Employee>(`/employees/${id}/vacations/deduct`, { method: 'POST', body: JSON.stringify({ days }) });
 
 // --- ProductSale Types ---
 export interface ProductSale {

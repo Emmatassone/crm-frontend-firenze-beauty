@@ -16,7 +16,7 @@ const employeeSchema = z.object({
   jobTitle: z.string().min(2, 'El puesto debe tener al menos 2 caracteres').max(100, 'El puesto no puede exceder los 100 caracteres'),
   status: z.enum(statusValues),
   level: z.enum(levelValues).optional().or(z.literal('')),
-  phoneNumber: z.string().optional().refine(val => !val || val.trim() === '' || /^\+?[1-9]\d{1,14}$/.test(val), { 
+  phoneNumber: z.string().optional().refine(val => !val || val.trim() === '' || /^\+?[1-9]\d{1,14}$/.test(val), {
     message: 'El número de teléfono debe ser un formato internacional válido (ej: +1234567890) o estar vacío'
   }),
   address: z.string().optional(),
@@ -24,6 +24,8 @@ const employeeSchema = z.object({
     if (!val || val.trim() === '') return true;
     return /^\d{2}-\d{2}-\d{4}$/.test(val);
   }, { message: 'La fecha debe ser DD-MM-AAAA' }),
+  hireDate: z.string().optional().or(z.literal('')),
+  employmentType: z.enum(['fullTime', 'partTime']).optional().or(z.literal('')),
 });
 
 export type EmployeeFormValues = z.infer<typeof employeeSchema>;
@@ -45,11 +47,11 @@ export default function EmployeeForm({ onSubmit, isLoading, defaultValues, isEdi
     defaultValues: {
       ...defaultValues,
       dateOfBirth: defaultValues?.dateOfBirth ? (() => {
-          const date = new Date(defaultValues.dateOfBirth);
-          const day = String(date.getUTCDate()).padStart(2, '0');
-          const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-          const year = date.getUTCFullYear();
-          return `${day}-${month}-${year}`;
+        const date = new Date(defaultValues.dateOfBirth);
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const year = date.getUTCFullYear();
+        return `${day}-${month}-${year}`;
       })() : '',
     },
   });
@@ -77,7 +79,7 @@ export default function EmployeeForm({ onSubmit, isLoading, defaultValues, isEdi
         <input id="password" type="password" {...register('password')} className={`${inputStyle} ${errors.password ? 'border-red-500' : ''}`} />
         {errors.password && <p className={errorStyle}>{errors.password.message}</p>}
       </div>
-      
+
       <div>
         <label htmlFor="jobTitle" className={labelStyle}>Puesto <span className="text-red-500">*</span></label>
         <input id="jobTitle" type="text" {...register('jobTitle')} className={`${inputStyle} ${errors.jobTitle ? 'border-red-500' : ''}`} />
@@ -86,9 +88,9 @@ export default function EmployeeForm({ onSubmit, isLoading, defaultValues, isEdi
 
       <div>
         <label htmlFor="status" className={labelStyle}>Estado</label>
-        <select 
-          id="status" 
-          {...register('status')} 
+        <select
+          id="status"
+          {...register('status')}
           className={`${inputStyle} ${errors.status ? 'border-red-500' : ''}`}
         >
           {statusValues.map(st => (
@@ -100,9 +102,9 @@ export default function EmployeeForm({ onSubmit, isLoading, defaultValues, isEdi
 
       <div>
         <label htmlFor="level" className={labelStyle}>Nivel</label>
-        <select 
-          id="level" 
-          {...register('level')} 
+        <select
+          id="level"
+          {...register('level')}
           className={`${inputStyle} ${errors.level ? 'border-red-500' : ''}`}
         >
           <option value="">Seleccione un nivel (opcional)</option>
@@ -129,6 +131,25 @@ export default function EmployeeForm({ onSubmit, isLoading, defaultValues, isEdi
         <label htmlFor="dateOfBirth" className={labelStyle}>Fecha de Nacimiento</label>
         <input id="dateOfBirth" type="text" placeholder="DD-MM-AAAA" {...register('dateOfBirth')} className={`${inputStyle} ${errors.dateOfBirth ? 'border-red-500' : ''}`} />
         {errors.dateOfBirth && <p className={errorStyle}>{errors.dateOfBirth.message}</p>}
+      </div>
+
+      <div>
+        <label htmlFor="hireDate" className={labelStyle}>Fecha de Contratación</label>
+        <input id="hireDate" type="date" {...register('hireDate')} className={`${inputStyle} ${errors.hireDate ? 'border-red-500' : ''}`} />
+        {errors.hireDate && <p className={errorStyle}>{errors.hireDate.message}</p>}
+      </div>
+
+      <div>
+        <label htmlFor="employmentType" className={labelStyle}>Tipo de Empleo</label>
+        <select
+          id="employmentType"
+          {...register('employmentType')}
+          className={`${inputStyle} ${errors.employmentType ? 'border-red-500' : ''}`}
+        >
+          <option value="fullTime">Full Time</option>
+          <option value="partTime">Part Time</option>
+        </select>
+        {errors.employmentType && <p className={errorStyle}>{errors.employmentType.message}</p>}
       </div>
 
       <div className="flex items-center justify-end space-x-4">
