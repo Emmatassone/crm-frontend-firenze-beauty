@@ -19,6 +19,8 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  LineChart,
+  Line,
 } from 'recharts';
 
 // Color palette for charts
@@ -219,18 +221,62 @@ export default function AnalyticsPage() {
           {/* Finance Tab */}
           {activeTab === 'finance' && (
             <div className="space-y-6">
+              {/* Revenue & Expenses Trend - Line Chart */}
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Desglose de Ingresos Mensuales</h2>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Tendencias de Ingresos y Gastos</h2>
+                <div className="h-96">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={[...financeData].reverse().map(item => ({
+                      ...item,
+                      net_service_revenue: Number(item.appointment_revenue || 0) - Number(item.total_salary_expenses || 0)
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis tickFormatter={(value) => `$${value}`} />
+                      <Tooltip formatter={(value: number) => [formatCurrency(value), '']} />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="appointment_revenue"
+                        name="Ingresos por Servicios"
+                        stroke="#ec4899"
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="net_service_revenue"
+                        name="Ingresos por servicios netos"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="total_salary_expenses"
+                        name="Gastos de Salarios"
+                        stroke="#ef4444"
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                        strokeDasharray="5 5"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Product Revenue - Bar Chart */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Ingresos por Productos</h2>
                 <div className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={[...financeData].reverse()}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis tickFormatter={(value) => `$${value}`} />
-                      <Tooltip formatter={(value: number) => [formatCurrency(value), '']} />
+                      <Tooltip formatter={(value: number) => [formatCurrency(value), 'Productos']} />
                       <Legend />
-                      <Bar dataKey="appointment_revenue" name="Servicios" stackId="a" fill="#ec4899" />
-                      <Bar dataKey="product_revenue" name="Productos" stackId="a" fill="#3b82f6" />
+                      <Bar dataKey="product_revenue" name="Productos" fill="#3b82f6" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -321,6 +367,52 @@ export default function AnalyticsPage() {
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
+              </div>
+
+              {/* Employee Efficiency Metrics - Current Month */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                  Eficiencia de Empleados (Mes Actual)
+                </h2>
+                <div className="h-96">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={(() => {
+                      // Get current month data for all employees
+                      const currentMonth = employeeData[0]?.month;
+                      const currentMonthData = employeeData
+                        .filter(e => e.month === currentMonth && e.hourly_wage && e.revenue_per_hour)
+                        .map(e => ({
+                          employee_name: e.employee_name,
+                          hourly_wage: Number(e.hourly_wage || 0),
+                          revenue_per_hour: Number(e.revenue_per_hour || 0),
+                          efficiency_ratio: e.hourly_wage > 0
+                            ? ((Number(e.revenue_per_hour || 0) / Number(e.hourly_wage)) * 100).toFixed(1)
+                            : 0
+                        }));
+                      return currentMonthData;
+                    })()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="employee_name" angle={-45} textAnchor="end" height={100} />
+                      <YAxis yAxisId="left" orientation="left" stroke="#8b5cf6" label={{ value: '$', position: 'insideLeft' }} />
+                      <YAxis yAxisId="right" orientation="right" stroke="#10b981" label={{ value: '%', position: 'insideRight' }} />
+                      <Tooltip
+                        formatter={(value: number, name: string) => {
+                          if (name === 'Ratio de Eficiencia') {
+                            return [`${value}%`, name];
+                          }
+                          return [formatCurrency(value), name];
+                        }}
+                      />
+                      <Legend />
+                      <Bar yAxisId="left" dataKey="hourly_wage" name="Salario por Hora" fill="#8b5cf6" />
+                      <Bar yAxisId="left" dataKey="revenue_per_hour" name="Ingresos por Hora" fill="#ec4899" />
+                      <Bar yAxisId="right" dataKey="efficiency_ratio" name="Ratio de Eficiencia" fill="#10b981" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-sm text-gray-500 mt-4">
+                  * Ratio de Eficiencia = (Ingresos por Hora / Salario por Hora) × 100%
+                </p>
               </div>
 
               {/* Service Time Breakdown */}
