@@ -2,45 +2,54 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import Link from 'next/link';
-import Navigation from '@/components/Navigation';
+import SidebarNavigation from '@/components/SidebarNavigation';
 import MainLayout from '@/components/MainLayout';
 import { useAuthStore } from '@/lib/store/auth';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === '/login';
-  const { token, isTokenValid } = useAuthStore();
+  const { token } = useAuthStore();
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
     setIsHydrated(true);
   }, []);
 
-  const showChrome = !isLoginPage && isHydrated && token && isTokenValid();
-
-  return (
-    <>
-      {showChrome && (
-        <header className="bg-pink-600 text-white shadow-md">
-          <nav className="container mx-auto px-6 py-3 flex justify-between items-center">
-            <Link href="/" className="text-xl font-bold hover:text-pink-200">
-              Firenze Beauty - Gestor de Clientes
-            </Link>
-            <Navigation />
-          </nav>
-        </header>
-      )}
-      <main className="flex-grow container mx-auto p-6">
-        <MainLayout>
-          {children}
-        </MainLayout>
+  // Login page layout
+  if (isLoginPage) {
+    return (
+      <main className="min-h-screen bg-white">
+        {children}
       </main>
-      {showChrome && (
-        <footer className="bg-gray-800 text-white text-center p-4 mt-auto">
-          <p>&copy; {new Date().getFullYear()} Firenze Beauty - Salón de Belleza. Todos los derechos reservados.</p>
-        </footer>
-      )}
-    </>
+    );
+  }
+
+  // Prevent flash of unstyled content/logic before hydration
+  if (!isHydrated) {
+    return null; // Or a simple loading screen
+  }
+
+  // Main App Layout
+  return (
+    <div className="flex w-full h-screen bg-gray-50 overflow-hidden relative">
+      <MainLayout>
+        <div className="flex h-full w-full">
+          {/* Sidebar logic - only if token exists */}
+          {token && (
+            <div className="h-full flex-shrink-0">
+              <SidebarNavigation />
+            </div>
+          )}
+
+          {/* Page Content Panel */}
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              {children}
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    </div>
   );
 }

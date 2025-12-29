@@ -187,7 +187,7 @@ export default function EmployeeDetailsPage() {
       <div className="bg-white rounded-lg shadow p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
         <div><div className="text-sm text-gray-500">Nombre</div><div className="text-lg text-gray-900">{employee.name}</div></div>
         <div><div className="text-sm text-gray-500">Correo</div><div className="text-lg text-gray-900">{employee.email}</div></div>
-        <div><div className="text-sm text-gray-500">Puesto</div><div className="text-lg text-gray-900">{employee.jobTitle}</div></div>
+        <div><div className="text-sm text-gray-500">Puesto(s)</div><div className="text-lg text-gray-900">{employee.jobTitle.join(', ')}</div></div>
         <div>
           <div className="text-sm text-gray-500">Estado</div>
           {canAccessAnalytics ? (

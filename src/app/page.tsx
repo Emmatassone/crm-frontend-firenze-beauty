@@ -22,6 +22,7 @@ export default function HomePage() {
     { href: '/services', label: 'Servicios', description: 'Administrar servicios disponibles.' },
     { href: '/clients', label: 'Clientes', description: 'Ver, agregar y administrar perfiles detallados de clientes.' },
     { href: '/appointments', label: 'Citas', description: 'Programar y gestionar citas de clientes.' },
+    { href: '/calendar', label: 'Agenda', description: 'Ver y gestionar calendario de actividades.' },
     { href: '/sales', label: 'Ventas', description: 'Registrar y consultar ventas de productos.' },
     ...(canAccessAnalytics ? [{ href: '/analytics', label: 'Analíticas', description: 'Ver estadísticas y reportes del negocio.' }] : []),
   ];

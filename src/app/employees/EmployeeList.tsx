@@ -23,7 +23,7 @@ export default function EmployeeList({ initialEmployees }: EmployeeListProps) {
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
     return nonRetiredEmployees.filter(employee =>
       (employee.name.toLowerCase().includes(lowerCaseSearchTerm)) ||
-      (employee.jobTitle.toLowerCase().includes(lowerCaseSearchTerm)) ||
+      (employee.jobTitle.some(title => title.toLowerCase().includes(lowerCaseSearchTerm))) ||
       (employee.email.toLowerCase().includes(lowerCaseSearchTerm))
     );
   }, [searchTerm, initialEmployees]);
@@ -72,7 +72,7 @@ export default function EmployeeList({ initialEmployees }: EmployeeListProps) {
                 >
                   <td className={tdStyle}>{employee.name}</td>
                   <td className={tdStyle}>{employee.email}</td>
-                  <td className={tdStyle}>{employee.jobTitle}</td>
+                  <td className={tdStyle}>{employee.jobTitle.join(', ')}</td>
                   <td className={tdStyle}>
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${employee.status === 'active' ? 'bg-green-100 text-green-800' :
                       employee.status === 'suspended' ? 'bg-yellow-100 text-yellow-800' :

@@ -6,7 +6,7 @@ import { z } from 'zod';
 import Link from 'next/link';
 import Select from 'react-select';
 import { Appointment, ClientProfile, Employee, getEmployees, getServices, Service } from '@/lib/api';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 const appointmentSchema = z.object({
   appointmentDate: z.string().min(1, 'La fecha es requerida').refine(val => {
@@ -39,36 +39,13 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [employeeData, serviceData] = await Promise.all([
-          getEmployees(),
-          getServices(),
-        ]);
-        setEmployees(employeeData.filter(e => e.status === 'active'));
-        setServices(serviceData);
-      } catch (e) {
-        console.error("Error al cargar datos para el formulario", e);
-      }
-    }
-    fetchData();
-  }, []);
-
-  const getCurrentTime = () => {
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
-  };
-
-  const getTodayDate = () => {
+  const getTodayDate = useCallback(() => {
     const today = new Date();
     const day = String(today.getDate()).padStart(2, '0');
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const year = today.getFullYear();
     return `${day}-${month}-${year}`;
-  };
+  }, []);
 
   const {
     register,
@@ -83,20 +60,66 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
     defaultValues: {
       ...defaultValues,
       appointmentDate: defaultValues?.appointmentDate ? (() => {
-        const date = new Date(defaultValues.appointmentDate);
-        const day = String(date.getUTCDate()).padStart(2, '0');
-        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-        const year = date.getUTCFullYear();
-        return `${day}-${month}-${year}`;
+        // Handle YYYY-MM-DD or other formats
+        const dateStr = defaultValues.appointmentDate;
+        if (dateStr.includes('-')) {
+          const parts = dateStr.split('-');
+          if (parts[0].length === 4) { // YYYY-MM-DD
+            return `${parts[2]}-${parts[1]}-${parts[0]}`;
+          }
+        }
+        return dateStr;
       })() : getTodayDate(),
-      arrivalTime: defaultValues?.arrivalTime || getCurrentTime(),
-      leaveTime: defaultValues?.leaveTime || getCurrentTime(),
+      arrivalTime: defaultValues?.arrivalTime || '',
+      leaveTime: defaultValues?.leaveTime || '',
       serviceConsumed: defaultValues?.serviceConsumed || [],
       serviceQuantities: defaultValues?.serviceQuantities || [],
       usedDiscount: defaultValues?.usedDiscount || [],
       servicePrices: defaultValues?.servicePrices || [],
+      attendedEmployee: defaultValues?.attendedEmployee || '',
     },
   });
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [employeeData, serviceData] = await Promise.all([
+          getEmployees(),
+          getServices(),
+        ]);
+        const activeEmployees = employeeData.filter(e => e.status === 'active');
+        setEmployees(activeEmployees);
+        setServices(serviceData);
+
+        // Sync attendedEmployee if it came from defaultValues
+        if (defaultValues?.attendedEmployee) {
+          setValue('attendedEmployee', defaultValues.attendedEmployee);
+        }
+
+        // Initialize metadata for pre-filled services
+        if (defaultValues?.serviceConsumed && defaultValues.serviceConsumed.length > 0) {
+          const count = defaultValues.serviceConsumed.length;
+
+          if (!getValues('serviceQuantities') || getValues('serviceQuantities')?.length === 0) {
+            setValue('serviceQuantities', Array(count).fill('1'));
+          }
+          if (!getValues('usedDiscount') || getValues('usedDiscount')?.length === 0) {
+            setValue('usedDiscount', Array(count).fill('0'));
+          }
+          if (!getValues('servicePrices') || getValues('servicePrices')?.length === 0) {
+            const initialPrices = defaultValues.serviceConsumed.map(name => {
+              const s = serviceData.find(srv => srv.name === name.trim());
+              return s ? Number(s.price) : 0;
+            });
+            setValue('servicePrices', initialPrices);
+          }
+        }
+      } catch (e) {
+        console.error("Error al cargar datos para el formulario", e);
+      }
+    }
+    fetchData();
+  }, [defaultValues, setValue, getValues]);
 
   const selectedClientId = watch('clientId');
   const serviceConsumed = watch('serviceConsumed') || [];
@@ -104,15 +127,13 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
   const usedDiscount = watch('usedDiscount') || [];
   const servicePrices = watch('servicePrices') || [];
 
-  // Calculate total price based on selected services, quantities, and discounts
-  const calculateTotalPrice = () => {
+  const calculateTotalPrice = useCallback(() => {
     if (!serviceConsumed || serviceConsumed.length === 0) return { total: 0, originalTotal: 0 };
 
     let total = 0;
     let originalTotal = 0;
     serviceConsumed.forEach((serviceName: string, index: number) => {
       let price = 0;
-      // Use stored price if available, otherwise fallback to current master price
       if (servicePrices && servicePrices[index] !== undefined && servicePrices[index] !== null) {
         price = Number(servicePrices[index]);
       } else {
@@ -130,11 +151,10 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
     });
 
     return { total, originalTotal };
-  };
+  }, [serviceConsumed, servicePrices, services, serviceQuantities, usedDiscount]);
 
   const { total: totalPrice, originalTotal: originalTotalPrice } = calculateTotalPrice();
 
-  // Update totalAmount in form whenever it changes
   useEffect(() => {
     setValue('totalAmount', totalPrice);
   }, [totalPrice, setValue]);
@@ -146,15 +166,12 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
         setValue('clientName', selectedClient.name || selectedClient.phoneNumber || '');
       }
     } else {
-      setValue('clientName', ''); // Clear if no client is selected
+      setValue('clientName', '');
     }
   }, [selectedClientId, clients, setValue]);
 
-  // Sync logic moved to handlers to ensure correct index alignment
-  // Only ensuring defaults if needed
   useEffect(() => {
-    if ((!serviceConsumed || serviceConsumed.length === 0)) {
-      // Clear others if services cleared
+    if (!serviceConsumed || serviceConsumed.length === 0) {
       if ((getValues('usedDiscount') || []).length > 0) setValue('usedDiscount', []);
       if ((getValues('serviceQuantities') || []).length > 0) setValue('serviceQuantities', []);
       if ((getValues('servicePrices') || []).length > 0) setValue('servicePrices', []);
@@ -184,7 +201,6 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
               options={clients.map(client => ({ value: client.id, label: client.name || client.phoneNumber }))}
               onChange={option => {
                 field.onChange(option ? option.value : '');
-                // Auto-fill clientName when client is selected
                 if (option) {
                   const selectedClient = clients.find(c => c.id === option.value);
                   if (selectedClient) {
@@ -227,7 +243,6 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
                 const newServices = [...servicesArray, serviceName];
                 field.onChange(newServices);
 
-                // Add default quantity, discount, and PRICE
                 const currentQuantities = getValues('serviceQuantities') || [];
                 const currentDiscounts = getValues('usedDiscount') || [];
                 const currentPrices = getValues('servicePrices') || [];
@@ -235,7 +250,6 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
                 setValue('serviceQuantities', [...currentQuantities, '1']);
                 setValue('usedDiscount', [...currentDiscounts, '0']);
 
-                // Find price
                 const s = services.find(srv => srv.name === serviceName);
                 const price = s ? Number(s.price) : 0;
                 setValue('servicePrices', [...currentPrices, price]);
@@ -246,7 +260,6 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
               const newServices = servicesArray.filter((_: string, i: number) => i !== index);
               field.onChange(newServices);
 
-              // Remove from quantities, discounts, and prices explicitly
               const currentQuantities = getValues('serviceQuantities') || [];
               const currentDiscounts = getValues('usedDiscount') || [];
               const currentPrices = getValues('servicePrices') || [];
@@ -292,16 +305,18 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
         {errors.serviceConsumed && <p className={errorStyle}>{errors.serviceConsumed.message}</p>}
       </div>
 
-      <div>
-        <label htmlFor="arrivalTime" className={labelStyle}>Hora de Llegada (HH:MM)</label>
-        <input id="arrivalTime" type="time" {...register('arrivalTime')} className={`${inputStyle} ${errors.arrivalTime ? 'border-red-500' : ''}`} />
-        {errors.arrivalTime && <p className={errorStyle}>{errors.arrivalTime.message}</p>}
-      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="arrivalTime" className={labelStyle}>Hora de Llegada (HH:MM)</label>
+          <input id="arrivalTime" type="time" {...register('arrivalTime')} className={`${inputStyle} ${errors.arrivalTime ? 'border-red-500' : ''}`} />
+          {errors.arrivalTime && <p className={errorStyle}>{errors.arrivalTime.message}</p>}
+        </div>
 
-      <div>
-        <label htmlFor="leaveTime" className={labelStyle}>Hora de Salida (HH:MM)</label>
-        <input id="leaveTime" type="time" {...register('leaveTime')} className={`${inputStyle} ${errors.leaveTime ? 'border-red-500' : ''}`} />
-        {errors.leaveTime && <p className={errorStyle}>{errors.leaveTime.message}</p>}
+        <div>
+          <label htmlFor="leaveTime" className={labelStyle}>Hora de Salida (HH:MM)</label>
+          <input id="leaveTime" type="time" {...register('leaveTime')} className={`${inputStyle} ${errors.leaveTime ? 'border-red-500' : ''}`} />
+          {errors.leaveTime && <p className={errorStyle}>{errors.leaveTime.message}</p>}
+        </div>
       </div>
 
       <div>
@@ -316,22 +331,18 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
 
             const handlePriceChange = (index: number, value: string) => {
               const newPrices = [...(servicePrices || [])];
-              // Default to 0 if NaN, but try to keep valid input
               newPrices[index] = parseFloat(value) || 0;
               setValue('servicePrices', newPrices);
             };
 
             const handleDiscountChange = (index: number, value: string) => {
-              // Allow digits and optional decimal point
               if (value !== '' && !/^\d*\.?\d*$/.test(value)) return;
 
               let cleanValue = value;
-              // Remove leading zero if it's not the only character and not followed by a decimal point
               if (cleanValue.length > 1 && cleanValue.startsWith('0') && cleanValue[1] !== '.') {
                 cleanValue = cleanValue.substring(1);
               }
 
-              // Ensure max value is 100
               if (parseFloat(cleanValue) > 100) {
                 cleanValue = '100';
               }

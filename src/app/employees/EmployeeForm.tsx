@@ -1,10 +1,20 @@
 'use client';
 
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
+import Select from 'react-select';
 import { Employee } from '@/lib/api';
+
+const jobTitleOptions = [
+  { value: 'Uñas', label: 'Uñas' },
+  { value: 'Pestañas y Cejas', label: 'Pestañas y Cejas' },
+  { value: 'Peluqueria', label: 'Peluqueria' },
+  { value: 'Maquillaje', label: 'Maquillaje' },
+  { value: 'Cosmetología', label: 'Cosmetología' },
+  { value: 'Labios', label: 'Labios' }
+];
 
 const levelValues = ["1", "2", "3", "4", "5", "6"] as const;
 const statusValues = ["active", "suspended", "retired"] as const;
@@ -13,7 +23,7 @@ const employeeSchema = z.object({
   name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres').max(100, 'El nombre no puede exceder los 100 caracteres'),
   email: z.string().email('Debe ser un correo electrónico válido').min(1, 'El correo electrónico es requerido'),
   password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres').optional().or(z.literal('')),
-  jobTitle: z.string().min(2, 'El puesto debe tener al menos 2 caracteres').max(100, 'El puesto no puede exceder los 100 caracteres'),
+  jobTitle: z.array(z.string()).min(1, 'Debe seleccionar al menos un puesto'),
   status: z.enum(statusValues),
   level: z.enum(levelValues).optional().or(z.literal('')),
   phoneNumber: z.string().optional().refine(val => !val || val.trim() === '' || /^\+?[1-9]\d{1,14}$/.test(val), {
@@ -41,6 +51,7 @@ export default function EmployeeForm({ onSubmit, isLoading, defaultValues, isEdi
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
@@ -81,8 +92,29 @@ export default function EmployeeForm({ onSubmit, isLoading, defaultValues, isEdi
       </div>
 
       <div>
-        <label htmlFor="jobTitle" className={labelStyle}>Puesto <span className="text-red-500">*</span></label>
-        <input id="jobTitle" type="text" {...register('jobTitle')} className={`${inputStyle} ${errors.jobTitle ? 'border-red-500' : ''}`} />
+        <label htmlFor="jobTitle" className={labelStyle}>Puesto(s) <span className="text-red-500">*</span></label>
+        <Controller
+          name="jobTitle"
+          control={control}
+          render={({ field }) => (
+            <Select
+              isMulti
+              options={jobTitleOptions}
+              classNamePrefix="select"
+              placeholder="Seleccionar puestos..."
+              className={errors.jobTitle ? 'border-red-500 rounded-md' : ''}
+              value={jobTitleOptions.filter(option => field.value?.includes(option.value))}
+              onChange={(val) => field.onChange(val.map(v => v.value))}
+              theme={(theme) => ({
+                ...theme,
+                colors: {
+                  ...theme.colors,
+                  primary: '#db2777', // pink-600
+                }
+              })}
+            />
+          )}
+        />
         {errors.jobTitle && <p className={errorStyle}>{errors.jobTitle.message}</p>}
       </div>
 

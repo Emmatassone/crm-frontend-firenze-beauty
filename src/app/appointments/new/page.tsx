@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { SubmitHandler } from 'react-hook-form';
 import { createAppointment, CreateAppointmentDto, getClientProfiles, ClientProfile } from '@/lib/api';
 import { useAuthStore } from '@/lib/store/auth';
 import AppointmentForm, { AppointmentFormValues } from '../AppointmentForm';
 
-export default function NewAppointmentPage() {
+function NewAppointmentContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clients, setClients] = useState<ClientProfile[]>([]);
@@ -35,10 +36,13 @@ export default function NewAppointmentPage() {
     fetchClients();
   }, []);
 
-  // Don't render form for view-only users
-  if (isViewOnly) {
-    return null;
-  }
+  const defaultValues: Partial<AppointmentFormValues> = {
+    appointmentDate: searchParams.get('date') || undefined,
+    clientId: searchParams.get('clientId') || undefined,
+    clientName: searchParams.get('clientName') || undefined,
+    attendedEmployee: searchParams.get('employee') || undefined,
+    serviceConsumed: searchParams.get('services')?.split(',') || [],
+  };
 
   const onSubmit: SubmitHandler<AppointmentFormValues> = async (data) => {
     setIsLoading(true);
@@ -53,10 +57,11 @@ export default function NewAppointmentPage() {
         arrivalTime: data.arrivalTime,
         leaveTime: data.leaveTime,
         serviceConsumed: data.serviceConsumed,
-        serviceQuantities: data.serviceQuantities,
-        usedDiscount: data.usedDiscount,
-        additionalComments: data.additionalComments,
-        totalAmount: data.totalAmount,
+        serviceQuantities: data.serviceQuantities || [],
+        usedDiscount: data.usedDiscount || [],
+        additionalComments: data.additionalComments || '',
+        totalAmount: data.totalAmount || 0,
+        servicePrices: data.servicePrices || [],
       };
       const newAppointment = await createAppointment(payload);
       router.push(`/appointments/${newAppointment.id}`);
@@ -65,6 +70,8 @@ export default function NewAppointmentPage() {
     }
     setIsLoading(false);
   };
+
+  if (isViewOnly) return null;
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
@@ -85,7 +92,16 @@ export default function NewAppointmentPage() {
         onSubmit={onSubmit}
         isLoading={isLoading}
         clients={clients}
+        defaultValues={defaultValues}
       />
     </div>
   );
-} 
+}
+
+export default function NewAppointmentPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Cargando...</div>}>
+      <NewAppointmentContent />
+    </Suspense>
+  );
+}

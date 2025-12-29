@@ -15,6 +15,7 @@ export default function Navigation() {
     { href: '/services', label: 'Servicios' },
     { href: '/clients', label: 'Clientes' },
     { href: '/appointments', label: 'Citas' },
+    { href: '/calendar', label: 'Agenda' },
     { href: '/sales', label: 'Ventas' },
   ];
 
@@ -37,11 +38,10 @@ export default function Navigation() {
           <Link
             key={href}
             href={href}
-            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-              isActive(href)
+            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isActive(href)
                 ? 'bg-pink-700 text-white shadow-md'
                 : 'text-pink-100 hover:bg-pink-500 hover:text-white'
-            }`}
+              }`}
           >
             {label}
           </Link>
@@ -54,11 +54,10 @@ export default function Navigation() {
           <div className="mx-4 h-6 w-px bg-pink-300/50" /> {/* Divider */}
           <Link
             href="/analytics"
-            className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
-              isAnalyticsActive
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${isAnalyticsActive
                 ? 'bg-indigo-600 text-white shadow-lg ring-2 ring-indigo-400'
                 : 'bg-indigo-500/20 text-indigo-100 hover:bg-indigo-500 hover:text-white border border-indigo-400/50'
-            }`}
+              }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />

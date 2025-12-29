@@ -161,7 +161,7 @@ export interface Employee {
   id: string;
   name: string;
   email: string;
-  jobTitle: string;
+  jobTitle: string[];
   status: 'active' | 'suspended' | 'retired';
   employmentType?: 'fullTime' | 'partTime';
   hireDate?: string;
@@ -246,3 +246,32 @@ export const createProductSale = (data: CreateProductSaleDto): Promise<ProductSa
 export const updateProductSale = (id: string, data: UpdateProductSaleDto): Promise<ProductSale> => request<ProductSale>(`/sales/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 // Delete also sensitive
 export const deleteProductSale = (id: string): Promise<void> => request<void>(`/sales/${id}`, { method: 'DELETE' });
+
+// --- Appointment Schedule Types ---
+export interface AppointmentSchedule {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  clientName?: string;
+  clientId?: string; // Optional relation
+  employeeId?: string; // Optional relation
+  serviceId?: string; // Optional relation
+  notes?: string;
+  isAllDay: boolean;
+  createdAt?: string; // Optional if not needed on frontend yet
+  updatedAt?: string;
+}
+
+export type CreateAppointmentScheduleDto = Omit<AppointmentSchedule, 'id' | 'createdAt' | 'updatedAt'>;
+export type UpdateAppointmentScheduleDto = Partial<CreateAppointmentScheduleDto>;
+
+// --- Appointment Schedule API Functions ---
+export const getAppointmentSchedules = (): Promise<AppointmentSchedule[]> => request<AppointmentSchedule[]>('/appointment-schedule');
+export const getAppointmentScheduleById = (id: string): Promise<AppointmentSchedule> => request<AppointmentSchedule>(`/appointment-schedule/${id}`);
+export const createAppointmentSchedule = (data: CreateAppointmentScheduleDto): Promise<AppointmentSchedule> => request<AppointmentSchedule>('/appointment-schedule', { method: 'POST', body: JSON.stringify(data) });
+export const updateAppointmentSchedule = (id: string, data: UpdateAppointmentScheduleDto): Promise<AppointmentSchedule> => request<AppointmentSchedule>(`/appointment-schedule/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+export const deleteAppointmentSchedule = (id: string): Promise<void> => request<void>(`/appointment-schedule/${id}`, { method: 'DELETE' });
+
+// --- Analytics API Functions ---
+export const getEmployeeDurations = (name: string): Promise<any[]> => request<any[]>(`/analytics/employees/durations/${encodeURIComponent(name)}`);

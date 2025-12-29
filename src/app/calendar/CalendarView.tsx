@@ -1,0 +1,829 @@
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import Select from 'react-select';
+import CreatableSelect from 'react-select/creatable';
+import {
+    getAppointmentSchedules,
+    createAppointmentSchedule,
+    updateAppointmentSchedule,
+    deleteAppointmentSchedule,
+    getEmployees,
+    getServices,
+    getClientProfiles,
+    getEmployeeDurations,
+    AppointmentSchedule,
+    CreateAppointmentScheduleDto,
+    ClientProfile,
+    Employee,
+    Service
+} from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
+
+const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const MONTHS = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
+const formatToLocalISO = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+import { EMPLOYEE_COLORS, getEmployeeColor } from '@/lib/utils';
+
+interface CalendarViewProps {
+    selectedClient: ClientProfile | null;
+    onClearClient: () => void;
+}
+
+export default function CalendarView({ selectedClient, onClearClient }: CalendarViewProps) {
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [events, setEvents] = useState<AppointmentSchedule[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingEvent, setEditingEvent] = useState<AppointmentSchedule | null>(null);
+    const [availableEmployees, setAvailableEmployees] = useState<Employee[]>([]);
+    const [availableServices, setAvailableServices] = useState<Service[]>([]);
+    const [availableClients, setAvailableClients] = useState<ClientProfile[]>([]);
+    const [selectedServices, setSelectedServices] = useState<any[]>([]);
+    const [servicesWithPerformanceData, setServicesWithPerformanceData] = useState<Set<string>>(new Set());
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [filterEmployeeId, setFilterEmployeeId] = useState<string>('all');
+    const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+    const [selectedEventForAction, setSelectedEventForAction] = useState<AppointmentSchedule | null>(null);
+    const router = useRouter();
+
+    // Form state
+    const [formData, setFormData] = useState<CreateAppointmentScheduleDto>({
+        title: '',
+        start: new Date().toISOString(),
+        end: new Date().toISOString(),
+        notes: '',
+        isAllDay: false,
+        clientName: '',
+        clientId: undefined,
+        employeeId: undefined,
+        serviceId: undefined,
+    });
+
+    const { token, isTokenValid } = useAuthStore();
+
+    useEffect(() => {
+        if (token && isTokenValid()) {
+            fetchData();
+        }
+    }, [token, isTokenValid]);
+
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const [eventsData, employeesData, servicesData, clientsData] = await Promise.all([
+                getAppointmentSchedules(),
+                getEmployees(),
+                getServices(),
+                getClientProfiles()
+            ]);
+            setEvents(eventsData || []);
+            setAvailableEmployees((employeesData || []).filter(e => e.status === 'active'));
+            setAvailableServices(servicesData || []);
+            setAvailableClients(clientsData || []);
+        } catch (error) {
+            console.error('Failed to fetch calendar data', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Calculate End Time based on services and professional performance
+    useEffect(() => {
+        const calculateDuration = async () => {
+            if (!formData.employeeId || selectedServices.length === 0 || !formData.start) {
+                setServicesWithPerformanceData(new Set());
+                return;
+            }
+
+            const employee = availableEmployees.find(e => e.id === formData.employeeId);
+            if (!employee) return;
+
+            try {
+                // Fetch historical performance for this employee
+                const performanceData = await getEmployeeDurations(employee.name);
+                if (!performanceData || performanceData.length === 0) {
+                    setServicesWithPerformanceData(new Set());
+                    return;
+                }
+
+                let totalDuration = 0;
+                let allServicesFound = true;
+
+                const servicesWithData = new Set<string>();
+
+                for (const svcOption of selectedServices) {
+                    const serviceName = svcOption.label;
+                    let serviceDuration = null;
+
+                    // Look across the last 4 months (current + 3 past)
+                    for (const performance of performanceData) {
+                        const breakdown = typeof performance.service_time_breakdown === 'string'
+                            ? JSON.parse(performance.service_time_breakdown)
+                            : performance.service_time_breakdown;
+
+                        const match = (breakdown || []).find((s: any) => s.service === serviceName);
+                        if (match) {
+                            serviceDuration = match.avg_duration_minutes;
+                            servicesWithData.add(serviceName);
+                            break;
+                        }
+                    }
+
+                    if (serviceDuration !== null) {
+                        totalDuration += serviceDuration;
+                    } else {
+                        allServicesFound = false;
+                        // Don't break here if we want to check ALL services for color coding
+                    }
+                }
+
+                setServicesWithPerformanceData(servicesWithData);
+
+                if (totalDuration > 0) {
+                    const startDate = new Date(formData.start);
+                    const endDate = new Date(startDate.getTime() + totalDuration * 60000);
+
+                    setFormData(prev => ({
+                        ...prev,
+                        end: formatToLocalISO(endDate)
+                    }));
+                }
+            } catch (err) {
+                console.error("Error calculating duration:", err);
+            }
+        };
+
+        calculateDuration();
+    }, [formData.employeeId, selectedServices, formData.start, availableEmployees]);
+
+    const getDaysInMonth = (year: number, month: number) => {
+        return new Date(year, month + 1, 0).getDate();
+    };
+
+    const getFirstDayOfMonth = (year: number, month: number) => {
+        return new Date(year, month, 1).getDay();
+    };
+
+    const handlePrevMonth = () => {
+        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+    };
+
+    const handleNextMonth = () => {
+        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+    };
+
+    const openModal = (
+        date: Date,
+        prefilledData: Partial<CreateAppointmentScheduleDto> = {}
+    ) => {
+        // Set default times (9:00 AM to 10:00 AM)
+        const start = new Date(date);
+        start.setHours(9, 0, 0, 0);
+        const end = new Date(date);
+        end.setHours(10, 0, 0, 0);
+
+        setFormData({
+            title: prefilledData.clientName ? `Cita con ${prefilledData.clientName}` :
+                prefilledData.title || '',
+            start: formatToLocalISO(start),
+            end: formatToLocalISO(end),
+            notes: '',
+            isAllDay: false,
+            clientName: '',
+            clientId: undefined,
+            employeeId: undefined,
+            serviceId: undefined,
+            ...prefilledData
+        });
+        setSelectedServices([]);
+        setServicesWithPerformanceData(new Set());
+        setErrorMessage(null);
+        setEditingEvent(null);
+        setIsModalOpen(true);
+    };
+
+    const handleDayClick = (day: number) => {
+        const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+
+        const prefill: Partial<CreateAppointmentScheduleDto> = {};
+        if (selectedClient) {
+            prefill.clientName = selectedClient.name;
+            prefill.clientId = selectedClient.id;
+        }
+
+        openModal(clickedDate, prefill);
+    };
+
+    const handleDrop = (e: React.DragEvent, day: number) => {
+        e.preventDefault();
+        const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+
+        try {
+            const rawData = e.dataTransfer.getData('application/json');
+            if (!rawData) return;
+
+            const { type, data } = JSON.parse(rawData);
+            const prefill: Partial<CreateAppointmentScheduleDto> = {};
+
+            if (type === 'client') {
+                const client = data as ClientProfile;
+                prefill.clientName = client.name;
+                prefill.clientId = client.id;
+            } else if (type === 'employee') {
+                const employee = data as Employee;
+                prefill.employeeId = employee.id;
+                prefill.title = `Bloqueo/Cita - ${employee.name}`;
+            }
+
+            openModal(clickedDate, prefill);
+        } catch (err) {
+            console.error("Drop error", err);
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+    };
+
+    const handleEventClick = (e: React.MouseEvent, event: AppointmentSchedule) => {
+        e.stopPropagation();
+        setSelectedEventForAction(event);
+        setIsActionModalOpen(true);
+    };
+
+    const handleEditSelectedEvent = () => {
+        if (!selectedEventForAction) return;
+        const event = selectedEventForAction;
+        setEditingEvent(event);
+        setErrorMessage(null);
+        setFormData({
+            title: event.title,
+            start: formatToLocalISO(new Date(event.start)),
+            end: formatToLocalISO(new Date(event.end)),
+            notes: event.notes || '',
+            isAllDay: event.isAllDay,
+            clientName: event.clientName || '',
+            clientId: event.clientId,
+            employeeId: event.employeeId,
+            serviceId: event.serviceId,
+        });
+
+        // Try to identify selected services from availableServices if title contains them
+        const foundServices = availableServices.filter(s => event.title.includes(s.name));
+        setSelectedServices(foundServices.map(s => ({ value: s.id, label: s.name })));
+
+        setIsActionModalOpen(false);
+        setIsModalOpen(true);
+    };
+
+    const handleConfirmSelectedEvent = () => {
+        if (!selectedEventForAction) return;
+        const event = selectedEventForAction;
+
+        const date = new Date(event.start);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        const formattedDate = `${year}-${month}-${day}`;
+
+        const startTime = new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+        const endTime = new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+        // Get employee name
+        const employee = availableEmployees.find(e => e.id === event.employeeId);
+
+        // Map services
+        // If we have selectedServices in state for the current editing event it might be better, 
+        // but here we just have selectedEventForAction.
+        // We'll try to find services matching the title or the serviceId
+        const servicesInTitle = availableServices.filter(s => event.title.includes(s.name));
+        const serviceNames = servicesInTitle.map(s => s.name).join(',');
+
+        const params = new URLSearchParams();
+        params.set('date', formattedDate);
+        params.set('start', startTime);
+        params.set('end', endTime);
+        if (event.clientId) params.set('clientId', String(event.clientId));
+        if (event.clientName) params.set('clientName', event.clientName);
+        if (employee) params.set('employee', employee.name);
+        if (serviceNames) params.set('services', serviceNames);
+
+        router.push(`/appointments/new?${params.toString()}`);
+    };
+
+    const handleDeleteFromAction = async () => {
+        if (!selectedEventForAction) return;
+        if (confirm('¿Estás seguro de eliminar este turno programado?')) {
+            try {
+                await deleteAppointmentSchedule(selectedEventForAction.id);
+                setIsActionModalOpen(false);
+                fetchData();
+            } catch (error) {
+                console.error('Error deleting event', error);
+            }
+        }
+    };
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            const finalData = { ...formData };
+            // If we have selected services, use their names for the title
+            if (selectedServices.length > 0) {
+                const serviceNames = selectedServices.map(s => s.label).join(', ');
+                finalData.title = formData.clientName
+                    ? `Cita ${formData.clientName}: ${serviceNames}`
+                    : serviceNames;
+
+                // Set serviceId to the first selected service for relation consistency
+                finalData.serviceId = selectedServices[0].value;
+            }
+
+            if (finalData.employeeId && !finalData.isAllDay) {
+                const newStart = new Date(finalData.start).getTime();
+                const newEnd = new Date(finalData.end).getTime();
+
+                const hasOverlap = events.some(event => {
+                    // Skip the current event being edited
+                    if (editingEvent && event.id === editingEvent.id) return false;
+                    // Only check for the same employee and non-all-day events
+                    if (event.employeeId !== finalData.employeeId || event.isAllDay) return false;
+
+                    const existStart = new Date(event.start).getTime();
+                    const existEnd = new Date(event.end).getTime();
+
+                    // Standard overlap check: (StartA < EndB) and (EndA > StartB)
+                    return newStart < existEnd && newEnd > existStart;
+                });
+
+                if (hasOverlap) {
+                    const employeeName = availableEmployees.find(e => e.id === finalData.employeeId)?.name || 'el profesional';
+                    setErrorMessage(`El horario seleccionado coincide con otro turno de ${employeeName}.`);
+                    return;
+                }
+            }
+
+            setErrorMessage(null);
+            if (editingEvent) {
+                await updateAppointmentSchedule(editingEvent.id, finalData);
+            } else {
+                await createAppointmentSchedule(finalData);
+            }
+            setIsModalOpen(false);
+            onClearClient();
+            fetchData();
+        } catch (error) {
+            console.error('Error saving event', error);
+            alert('Error al guardar el evento');
+        }
+    };
+
+
+
+    const handleDelete = async () => {
+        if (!editingEvent) return;
+        if (confirm('¿Estás seguro de eliminar este turno?')) {
+            try {
+                await deleteAppointmentSchedule(editingEvent.id);
+                setIsModalOpen(false);
+                fetchData();
+            } catch (error) {
+                console.error('Error deleting event', error);
+            }
+        }
+    };
+
+    const serviceOptions = useMemo(() => {
+        if (!formData.employeeId) {
+            return availableServices.map(s => ({ value: s.id, label: s.name }));
+        }
+
+        const employee = availableEmployees.find(e => e.id === formData.employeeId);
+        if (!employee || !employee.jobTitle || employee.jobTitle.length === 0) {
+            return availableServices.map(s => ({ value: s.id, label: s.name }));
+        }
+
+        // Filter services where the area matches one of the employee's job titles
+        const filtered = availableServices.filter(s =>
+            s.area && employee.jobTitle.includes(s.area)
+        );
+
+        return filtered.map(s => ({ value: s.id, label: s.name }));
+    }, [availableServices, formData.employeeId, availableEmployees]);
+
+    // Clear services if they are no longer in the filtered list when professional changes
+    useEffect(() => {
+        if (selectedServices.length > 0 && serviceOptions.length > 0) {
+            const validServiceIds = new Set(serviceOptions.map(o => o.value));
+            const filteredSelection = selectedServices.filter(s => validServiceIds.has(s.value));
+
+            if (filteredSelection.length !== selectedServices.length) {
+                setSelectedServices(filteredSelection);
+            }
+        } else if (selectedServices.length > 0 && formData.employeeId && serviceOptions.length === 0) {
+            // If employee selected but has NO matching services, clear all
+            setSelectedServices([]);
+        }
+    }, [serviceOptions, formData.employeeId]);
+
+    const clientOptions = useMemo(() =>
+        availableClients.map(c => ({ value: c.id, label: c.name || c.phoneNumber })),
+        [availableClients]);
+
+    const renderDays = () => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const daysInMonth = getDaysInMonth(year, month);
+        const firstDay = getFirstDayOfMonth(year, month);
+        const days = [];
+
+        for (let i = 0; i < firstDay; i++) {
+            days.push(<div key={`empty-${i}`} className="h-32 bg-gray-50 border border-gray-100"></div>);
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month, day);
+            const dayEvents = events.filter(e => {
+                const eDate = new Date(e.start);
+                const isSameDay = eDate.getDate() === day && eDate.getMonth() === month && eDate.getFullYear() === year;
+                const matchesFilter = filterEmployeeId === 'all' || String(e.employeeId) === filterEmployeeId;
+                return isSameDay && matchesFilter;
+            });
+
+            const isToday = new Date().toDateString() === date.toDateString();
+
+            days.push(
+                <div
+                    key={day}
+                    onClick={() => handleDayClick(day)}
+                    onDrop={(e) => handleDrop(e, day)}
+                    onDragOver={handleDragOver}
+                    className={`h-32 border border-gray-200 p-2 cursor-pointer hover:bg-gray-100 transition-colors overflow-y-auto relative ${isToday ? 'bg-pink-50' : 'bg-white'}`}
+                >
+                    <div className="flex justify-between items-start">
+                        <span className={`text-sm font-semibold ${isToday ? 'text-pink-600' : 'text-gray-700'}`}>{day}</span>
+                    </div>
+                    <div className="mt-1 space-y-1">
+                        {dayEvents.map(event => (
+                            <div
+                                key={event.id}
+                                onClick={(e) => handleEventClick(e, event)}
+                                className={`text-xs p-1 rounded text-white truncate shadow-sm transition-opacity hover:opacity-80 cursor-pointer ${getEmployeeColor(event.employeeId)}`}
+                                title={`${event.title} - ${new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} a ${new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                            >
+                                {!event.isAllDay && (
+                                    <div className="flex flex-col mb-0.5">
+                                        <span className="font-mono text-[9px] opacity-90 leading-tight">
+                                            {new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                )}
+                                <div className="font-medium truncate">{event.title}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        return days;
+    };
+
+    return (
+        <div className="h-full flex flex-col bg-white">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-800 capitalize">
+                    {MONTHS[currentDate.getMonth()]} <span className="text-gray-400 font-light">{currentDate.getFullYear()}</span>
+                </h2>
+                <div className="flex items-center space-x-6">
+                    <div className={`flex items-center space-x-2 p-1.5 rounded-xl border transition-all duration-300 ${filterEmployeeId === 'all'
+                        ? 'bg-gray-50 border-gray-200'
+                        : 'bg-pink-50 border-pink-200 shadow-sm ring-4 ring-pink-500/5'
+                        }`}>
+                        <span className={`text-[10px] font-bold px-2 uppercase tracking-widest ${filterEmployeeId === 'all' ? 'text-gray-400' : 'text-pink-600'
+                            }`}>
+                            Filtrar:
+                        </span>
+                        <select
+                            value={filterEmployeeId}
+                            onChange={(e) => setFilterEmployeeId(e.target.value)}
+                            className={`text-sm border-none bg-transparent focus:ring-0 font-bold min-w-[180px] cursor-pointer ${filterEmployeeId === 'all' ? 'text-gray-700' : 'text-pink-700'
+                                }`}
+                        >
+                            <option value="all">Todos los Profesionales</option>
+                            {availableEmployees.map(emp => (
+                                <option key={emp.id} value={emp.id}>{emp.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="flex space-x-2">
+                        <button onClick={handlePrevMonth} className="px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 text-sm">
+                            ◀
+                        </button>
+                        <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1.5 bg-pink-50 text-pink-700 border border-pink-200 rounded-md hover:bg-pink-100 text-sm font-medium">
+                            Hoy
+                        </button>
+                        <button onClick={handleNextMonth} className="px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 text-sm">
+                            ▶
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-auto p-6">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <div className="grid grid-cols-7 gap-px text-center text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">
+                        {DAYS.map(day => (
+                            <div key={day} className="py-2.5 uppercase tracking-wide">{day}</div>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-px bg-gray-200 border-b border-l border-r border-gray-200">
+                        {renderDays()}
+                    </div>
+                </div>
+            </div>
+
+            {isModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className={`px-6 py-4 flex justify-between items-center ${formData.clientId ? 'bg-purple-600' : 'bg-pink-600'}`}>
+                            <h3 className="text-lg font-bold text-white">{editingEvent ? 'Editar Turno' : 'Nuevo Turno'}</h3>
+                            <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white transition-colors">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSave} className="p-6 space-y-5">
+                            {errorMessage && (
+                                <div className="bg-red-50 border-l-4 border-red-500 p-4 animate-in slide-in-from-top-2 duration-300">
+                                    <div className="flex items-center">
+                                        <div className="flex-shrink-0">
+                                            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
+                                        <div className="ml-3">
+                                            <p className="text-sm text-red-700 font-medium">
+                                                {errorMessage}
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setErrorMessage(null)}
+                                            className="ml-auto pl-3"
+                                        >
+                                            <svg className="h-4 w-4 text-red-400 hover:text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+                                    <CreatableSelect
+                                        isClearable
+                                        options={clientOptions}
+                                        value={formData.clientId
+                                            ? { value: formData.clientId, label: formData.clientName }
+                                            : formData.clientName
+                                                ? { value: '', label: formData.clientName }
+                                                : null
+                                        }
+                                        onChange={(selected: any) => {
+                                            if (selected) {
+                                                setFormData({
+                                                    ...formData,
+                                                    clientId: selected.value || undefined,
+                                                    clientName: selected.label
+                                                });
+                                            } else {
+                                                setFormData({
+                                                    ...formData,
+                                                    clientId: undefined,
+                                                    clientName: ''
+                                                });
+                                            }
+                                        }}
+                                        onCreateOption={(inputValue) => {
+                                            setFormData({
+                                                ...formData,
+                                                clientId: undefined,
+                                                clientName: inputValue
+                                            });
+                                        }}
+                                        placeholder="Buscar o escribir nombre..."
+                                        formatCreateLabel={(inputValue) => `Nuevo cliente: "${inputValue}"`}
+                                        className="text-sm"
+                                        theme={(theme) => ({
+                                            ...theme,
+                                            colors: {
+                                                ...theme.colors,
+                                                primary: '#db2777',
+                                            }
+                                        })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Profesional</label>
+                                    <select
+                                        className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 border"
+                                        value={formData.employeeId || ''}
+                                        onChange={(e) => setFormData({ ...formData, employeeId: e.target.value || undefined })}
+                                    >
+                                        <option value="">Seleccionar...</option>
+                                        {availableEmployees.map(emp => (
+                                            <option key={emp.id} value={emp.id}>{emp.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Servicio(s)</label>
+                                <Select
+                                    isMulti
+                                    options={serviceOptions}
+                                    value={selectedServices}
+                                    onChange={(selected) => setSelectedServices(Array.from(selected || []))}
+                                    placeholder="Seleccionar servicios..."
+                                    className="text-sm"
+                                    styles={{
+                                        multiValue: (base, state) => {
+                                            const hasData = servicesWithPerformanceData.has(state.data.label);
+                                            return {
+                                                ...base,
+                                                backgroundColor: hasData ? '#ecfdf5' : base.backgroundColor, // emerald-50
+                                                border: hasData ? '1px solid #10b981' : base.border, // emerald-500
+                                                borderRadius: '6px',
+                                            };
+                                        },
+                                        multiValueLabel: (base, state) => {
+                                            const hasData = servicesWithPerformanceData.has(state.data.label);
+                                            return {
+                                                ...base,
+                                                color: hasData ? '#065f46' : base.color, // emerald-800
+                                                fontWeight: hasData ? '600' : base.fontWeight,
+                                            };
+                                        },
+                                        multiValueRemove: (base, state) => {
+                                            const hasData = servicesWithPerformanceData.has(state.data.label);
+                                            return {
+                                                ...base,
+                                                color: hasData ? '#065f46' : base.color,
+                                                ':hover': {
+                                                    backgroundColor: hasData ? '#10b981' : base[':hover']?.backgroundColor,
+                                                    color: 'white',
+                                                },
+                                            };
+                                        },
+                                    }}
+                                    theme={(theme) => ({
+                                        ...theme,
+                                        colors: {
+                                            ...theme.colors,
+                                            primary: '#db2777', // pink-600
+                                        }
+                                    })}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Inicio</label>
+                                    <input
+                                        type="datetime-local"
+                                        required
+                                        className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 border"
+                                        value={formData.start}
+                                        onChange={(e) => setFormData({ ...formData, start: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Fin</label>
+                                    <input
+                                        type="datetime-local"
+                                        required
+                                        className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 border"
+                                        value={formData.end}
+                                        onChange={(e) => setFormData({ ...formData, end: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                <input
+                                    id="isAllDay"
+                                    type="checkbox"
+                                    className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                                    checked={formData.isAllDay}
+                                    onChange={(e) => setFormData({ ...formData, isAllDay: e.target.checked })}
+                                />
+                                <label htmlFor="isAllDay" className="ml-2 block text-sm text-gray-900">Todo el día</label>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Notas / Detalles</label>
+                                <textarea
+                                    rows={3}
+                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 border resize-none"
+                                    placeholder="Detalles adicionales..."
+                                    value={formData.notes}
+                                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                ></textarea>
+                            </div>
+
+                            <div className="mt-6 flex justify-between pt-4 border-t border-gray-100">
+                                {editingEvent ? (
+                                    <button
+                                        type="button"
+                                        onClick={handleDelete}
+                                        className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-2 transition-colors rounded hover:bg-red-50"
+                                    >
+                                        Eliminar
+                                    </button>
+                                ) : <div></div>}
+                                <div className="space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsModalOpen(false)}
+                                        className="text-gray-700 hover:text-gray-900 text-sm font-medium px-4 py-2 hover:bg-gray-100 rounded transition-colors"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="bg-pink-600 text-white px-5 py-2 rounded-lg hover:bg-pink-700 transition-colors shadow-sm text-sm font-medium"
+                                    >
+                                        Guardar Turno
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {isActionModalOpen && selectedEventForAction && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center">
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">Opciones de Turno</h3>
+                            <p className="text-sm text-gray-500 mb-6">{selectedEventForAction.title}</p>
+
+                            <div className="space-y-3">
+                                <button
+                                    onClick={handleConfirmSelectedEvent}
+                                    className="w-full flex items-center justify-center space-x-2 bg-pink-600 text-white py-3 rounded-xl font-bold hover:bg-pink-700 transition-all shadow-md active:scale-95"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <span>Confirmar Turno</span>
+                                </button>
+
+                                <button
+                                    onClick={handleEditSelectedEvent}
+                                    className="w-full flex items-center justify-center space-x-2 bg-white text-gray-700 border-2 border-gray-200 py-3 rounded-xl font-bold hover:bg-gray-50 transition-all active:scale-95"
+                                >
+                                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                    <span>Editar Reserva</span>
+                                </button>
+
+                                <button
+                                    onClick={handleDeleteFromAction}
+                                    className="w-full flex items-center justify-center space-x-2 bg-red-50 text-red-600 border-2 border-red-100 py-3 rounded-xl font-bold hover:bg-red-100 transition-all active:scale-95"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    <span>Eliminar Turno</span>
+                                </button>
+                            </div>
+
+                            <button
+                                onClick={() => setIsActionModalOpen(false)}
+                                className="mt-6 text-gray-400 hover:text-gray-600 text-sm font-medium"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
