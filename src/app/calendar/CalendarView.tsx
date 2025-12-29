@@ -73,7 +73,8 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         serviceId: undefined,
     });
 
-    const { token, isTokenValid } = useAuthStore();
+    const { token, isTokenValid, level, name, email } = useAuthStore();
+    const isLevel123 = level === '1' || level === '2' || level === '3';
 
     useEffect(() => {
         if (token && isTokenValid()) {
@@ -91,9 +92,20 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 getClientProfiles()
             ]);
             setEvents(eventsData || []);
-            setAvailableEmployees((employeesData || []).filter(e => e.status === 'active'));
+            const activeEmployees = (employeesData || []).filter(e => e.status === 'active');
+            setAvailableEmployees(activeEmployees);
             setAvailableServices(servicesData || []);
             setAvailableClients(clientsData || []);
+
+            // Fix filter for level 1, 2, 3
+            if (isLevel123) {
+                const currentUserEmployee = activeEmployees.find(e =>
+                    e.email === email || e.name === name
+                );
+                if (currentUserEmployee) {
+                    setFilterEmployeeId(currentUserEmployee.id);
+                }
+            }
         } catch (error) {
             console.error('Failed to fetch calendar data', error);
         } finally {
@@ -522,10 +534,11 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                         <select
                             value={filterEmployeeId}
                             onChange={(e) => setFilterEmployeeId(e.target.value)}
+                            disabled={isLevel123}
                             className={`text-sm border-none bg-transparent focus:ring-0 font-bold min-w-[180px] cursor-pointer ${filterEmployeeId === 'all' ? 'text-gray-700' : 'text-pink-700'
-                                }`}
+                                } ${isLevel123 ? 'cursor-not-allowed opacity-70' : ''}`}
                         >
-                            <option value="all">Todos los Profesionales</option>
+                            {!isLevel123 && <option value="all">Todos los Profesionales</option>}
                             {availableEmployees.map(emp => (
                                 <option key={emp.id} value={emp.id}>{emp.name}</option>
                             ))}

@@ -9,7 +9,8 @@ export default function ClientDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const id = Array.isArray(params?.id) ? params.id[0] : (params?.id as string);
-  const { isViewOnly } = useAuthStore();
+  const { isViewOnly, level } = useAuthStore();
+  const isLevel123 = level === '1' || level === '2' || level === '3';
 
   const [client, setClient] = useState<ClientProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -130,7 +131,7 @@ export default function ClientDetailsPage() {
         <div className="flex gap-2">
           {!isEditing ? (
             <>
-              {!isViewOnly && (
+              {(isLevel123 || !isViewOnly) && (
                 <>
                   <button
                     onClick={() => setIsEditing(true)}
@@ -138,13 +139,15 @@ export default function ClientDetailsPage() {
                   >
                     Editar
                   </button>
-                  <button
-                    onClick={confirmDelete}
-                    disabled={isDeleting}
-                    className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white"
-                  >
-                    {isDeleting ? 'Eliminando...' : 'Borrar'}
-                  </button>
+                  {!isLevel123 && !isViewOnly && (
+                    <button
+                      onClick={confirmDelete}
+                      disabled={isDeleting}
+                      className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white"
+                    >
+                      {isDeleting ? 'Eliminando...' : 'Borrar'}
+                    </button>
+                  )}
                 </>
               )}
               <button
@@ -198,52 +201,56 @@ export default function ClientDetailsPage() {
           )}
         </div>
 
-        <div>
-          <label className="text-sm text-gray-500 block">Teléfono</label>
-          {isEditing ? (
-            <input
-              type="tel"
-              value={editForm.phoneNumber || ''}
-              onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-              disabled={isSaving}
-              required
-            />
-          ) : (
-            <div className="text-lg text-gray-900">{client.phoneNumber}</div>
-          )}
-        </div>
+        {!isLevel123 && (
+          <>
+            <div>
+              <label className="text-sm text-gray-500 block">Teléfono</label>
+              {isEditing ? (
+                <input
+                  type="tel"
+                  value={editForm.phoneNumber || ''}
+                  onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+                  disabled={isSaving}
+                  required
+                />
+              ) : (
+                <div className="text-lg text-gray-900">{client.phoneNumber}</div>
+              )}
+            </div>
 
-        <div>
-          <label className="text-sm text-gray-500 block">Correo</label>
-          {isEditing ? (
-            <input
-              type="email"
-              value={editForm.email || ''}
-              onChange={(e) => handleInputChange('email', e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-              disabled={isSaving}
-              placeholder="N/D"
-            />
-          ) : (
-            <div className="text-lg text-gray-900">{client.email || 'N/D'}</div>
-          )}
-        </div>
+            <div>
+              <label className="text-sm text-gray-500 block">Correo</label>
+              {isEditing ? (
+                <input
+                  type="email"
+                  value={editForm.email || ''}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+                  disabled={isSaving}
+                  placeholder="N/D"
+                />
+              ) : (
+                <div className="text-lg text-gray-900">{client.email || 'N/D'}</div>
+              )}
+            </div>
 
-        <div>
-          <label className="text-sm text-gray-500 block">Fecha de Nacimiento</label>
-          {isEditing ? (
-            <input
-              type="date"
-              value={editForm.dateOfBirth || ''}
-              onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-              disabled={isSaving}
-            />
-          ) : (
-            <div className="text-lg text-gray-900">{client.dateOfBirth || 'N/D'}</div>
-          )}
-        </div>
+            <div>
+              <label className="text-sm text-gray-500 block">Fecha de Nacimiento</label>
+              {isEditing ? (
+                <input
+                  type="date"
+                  value={editForm.dateOfBirth || ''}
+                  onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+                  disabled={isSaving}
+                />
+              ) : (
+                <div className="text-lg text-gray-900">{client.dateOfBirth || 'N/D'}</div>
+              )}
+            </div>
+          </>
+        )}
 
         <div>
           <label className="text-sm text-gray-500 block">Detalles de Cabello</label>
@@ -253,7 +260,7 @@ export default function ClientDetailsPage() {
               onChange={(e) => handleInputChange('hairDetails', e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
               disabled={isSaving}
-              rows={2}
+              rows={4}
               placeholder="N/D"
             />
           ) : (
@@ -269,7 +276,7 @@ export default function ClientDetailsPage() {
               onChange={(e) => handleInputChange('eyelashDetails', e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
               disabled={isSaving}
-              rows={2}
+              rows={4}
               placeholder="N/D"
             />
           ) : (
@@ -285,7 +292,7 @@ export default function ClientDetailsPage() {
               onChange={(e) => handleInputChange('nailDetails', e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
               disabled={isSaving}
-              rows={2}
+              rows={4}
               placeholder="N/D"
             />
           ) : (
@@ -301,7 +308,7 @@ export default function ClientDetailsPage() {
               onChange={(e) => handleInputChange('clientAllergies', e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
               disabled={isSaving}
-              rows={2}
+              rows={4}
               placeholder="N/D"
             />
           ) : (

@@ -102,11 +102,17 @@ export default function SidebarNavigation() {
                         <NavItem href="/employees" label="Empleados" icon={BsPeople} />
                     )}
 
-                    <NavItem href="/products" label="Productos" icon={BsBoxSeam} />
-                    <NavItem href="/services" label="Servicios" icon={BsScissors} />
+                    {/* Levels 1, 2, 3 cannot see Products, Services, and Sales */}
+                    {!(store.level === '1' || store.level === '2' || store.level === '3') && (
+                        <>
+                            <NavItem href="/products" label="Productos" icon={BsBoxSeam} />
+                            <NavItem href="/services" label="Servicios" icon={BsScissors} />
+                            <NavItem href="/sales" label="Ventas" icon={BsCashCoin} />
+                        </>
+                    )}
+
                     <NavItem href="/clients" label="Clientes" icon={BsPerson} />
                     <NavItem href="/appointments" label="Citas" icon={BsCalendarCheck} />
-                    <NavItem href="/sales" label="Ventas" icon={BsCashCoin} />
 
                     {store.canAccessAnalytics && (
                         <>

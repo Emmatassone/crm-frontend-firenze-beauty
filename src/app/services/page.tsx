@@ -4,15 +4,25 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getServices, Service } from '@/lib/api';
 import { useAuthStore } from '@/lib/store/auth';
+import { useRouter } from 'next/navigation';
 import ServiceList from './ServiceList';
 
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const { canManageProducts } = useAuthStore();
+  const { canManageProducts, level } = useAuthStore();
+  const router = useRouter();
+  const isLevel123 = level === '1' || level === '2' || level === '3';
 
   useEffect(() => {
+    if (isLevel123) {
+      router.push('/');
+    }
+  }, [isLevel123, router]);
+
+  useEffect(() => {
+    if (isLevel123) return;
     async function fetchServices() {
       try {
         const data = await getServices();
@@ -26,9 +36,9 @@ export default function ServicesPage() {
     }
 
     fetchServices();
-  }, []);
+  }, [isLevel123]);
 
-  if (loading) {
+  if (loading || isLevel123) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center">

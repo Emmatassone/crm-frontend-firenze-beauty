@@ -10,7 +10,8 @@ interface ServiceCard {
 }
 
 export default function HomePage() {
-  const { name, isAdmin, canAccessAnalytics } = useAuthStore();
+  const { name, level, isAdmin, canAccessAnalytics } = useAuthStore();
+  const isLevel123 = level === '1' || level === '2' || level === '3';
 
   // Use employee name directly for greeting
   const displayName = name || '';
@@ -18,12 +19,12 @@ export default function HomePage() {
   // Define all possible service cards with descriptions
   const allServiceCards: ServiceCard[] = [
     ...(isAdmin ? [{ href: '/employees', label: 'Empleados', description: 'Administrar empleados y sus permisos.' }] : []),
-    { href: '/products', label: 'Productos', description: 'Administrar inventario y ventas de productos.' },
-    { href: '/services', label: 'Servicios', description: 'Administrar servicios disponibles.' },
+    ...(!isLevel123 ? [{ href: '/products', label: 'Productos', description: 'Administrar inventario y ventas de productos.' }] : []),
+    ...(!isLevel123 ? [{ href: '/services', label: 'Servicios', description: 'Administrar servicios disponibles.' }] : []),
     { href: '/clients', label: 'Clientes', description: 'Ver, agregar y administrar perfiles detallados de clientes.' },
     { href: '/appointments', label: 'Citas', description: 'Programar y gestionar citas de clientes.' },
     { href: '/calendar', label: 'Agenda', description: 'Ver y gestionar calendario de actividades.' },
-    { href: '/sales', label: 'Ventas', description: 'Registrar y consultar ventas de productos.' },
+    ...(!isLevel123 ? [{ href: '/sales', label: 'Ventas', description: 'Registrar y consultar ventas de productos.' }] : []),
     ...(canAccessAnalytics ? [{ href: '/analytics', label: 'Analíticas', description: 'Ver estadísticas y reportes del negocio.' }] : []),
   ];
 

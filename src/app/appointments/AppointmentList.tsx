@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import type { Appointment } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
 
 interface AppointmentListProps {
   initialAppointments: Appointment[];
@@ -24,11 +25,22 @@ const formatDateTime = (isoString?: string) => {
 
 export default function AppointmentList({ initialAppointments }: AppointmentListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const { level, name } = useAuthStore();
+  const isLevel123 = level === '1' || level === '2' || level === '3';
 
   const filteredAppointments = useMemo(() => {
-    if (!searchTerm) return initialAppointments;
+    let filtered = initialAppointments;
+
+    // Filter by employee if level 1, 2, or 3
+    if (isLevel123 && name) {
+      filtered = filtered.filter(appt =>
+        appt.attendedEmployee.toLowerCase().includes(name.toLowerCase())
+      );
+    }
+
+    if (!searchTerm) return filtered;
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
-    return initialAppointments.filter(appt => {
+    return filtered.filter(appt => {
       const clientIdentifier = appt.clientName || appt.client?.name || appt.client?.phoneNumber || '';
       const formattedDate = formatDateTime(appt.appointmentDate).toLowerCase();
       const servicesText = Array.isArray(appt.serviceConsumed) ? appt.serviceConsumed.join(', ') : (appt.serviceConsumed || '');
@@ -39,7 +51,7 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
         appt.attendedEmployee.toLowerCase().includes(lowerCaseSearchTerm) // And by employee
       );
     });
-  }, [searchTerm, initialAppointments]);
+  }, [searchTerm, initialAppointments, isLevel123, name]);
 
   return (
     <div>
@@ -88,9 +100,11 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
                     <td className={tdStyle}>{formatDateTime(appt.appointmentDate)}</td>
                     <td className={tdStyle}>{appt.attendedEmployee}</td>
                     <td className={`${tdStyle} text-right`}>
-                      <Link href={`/appointments/${appt.id}`} className="text-pink-600 hover:text-pink-800 font-medium">
-                        Ver Detalles
-                      </Link>
+                      {!isLevel123 && (
+                        <Link href={`/appointments/${appt.id}`} className="text-pink-600 hover:text-pink-800 font-medium">
+                          Ver Detalles
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -101,4 +115,4 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
       )}
     </div>
   );
-} 
+}

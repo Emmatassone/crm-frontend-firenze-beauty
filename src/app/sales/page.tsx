@@ -4,15 +4,25 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getProductSales, ProductSale } from '@/lib/api';
 import { useAuthStore } from '@/lib/store/auth';
+import { useRouter } from 'next/navigation';
 import SaleList from './SaleList';
 
 function SalesPage() {
   const [sales, setSales] = useState<ProductSale[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const { isViewOnly } = useAuthStore();
+  const { isViewOnly, level } = useAuthStore();
+  const router = useRouter();
+  const isLevel123 = level === '1' || level === '2' || level === '3';
 
   useEffect(() => {
+    if (isLevel123) {
+      router.push('/');
+    }
+  }, [isLevel123, router]);
+
+  useEffect(() => {
+    if (isLevel123) return;
     async function fetchSales() {
       try {
         const data = await getProductSales();
@@ -26,9 +36,9 @@ function SalesPage() {
     }
 
     fetchSales();
-  }, []);
+  }, [isLevel123]);
 
-  if (loading) {
+  if (loading || isLevel123) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center">
