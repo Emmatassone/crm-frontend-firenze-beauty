@@ -175,6 +175,7 @@ export interface Employee {
   lastVacationResetYear?: number;
   monthlySalary?: number;
   weeklyWorkingHours?: number;
+  weekly_work_hours?: Record<string, { 'check-in': string; 'check-out': string }>;
   createdAt: string;
   updatedAt: string;
 }

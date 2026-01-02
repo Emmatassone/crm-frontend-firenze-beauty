@@ -388,6 +388,40 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                     setErrorMessage(`El horario seleccionado coincide con otro turno de ${employeeName}.`);
                     return;
                 }
+
+                // Check if appointment is within employee working hours
+                const employee = availableEmployees.find(e => e.id === finalData.employeeId);
+                if (employee?.weekly_work_hours) {
+                    const startDate = new Date(finalData.start);
+                    const endDate = new Date(finalData.end);
+
+                    // Get day of week in English (Sunday, Monday, etc.)
+                    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                    const dayName = daysOfWeek[startDate.getDay()];
+
+                    const workHours = employee.weekly_work_hours[dayName];
+                    if (workHours && workHours['check-in'] && workHours['check-out']) {
+                        // Parse work hours
+                        const [checkInHour, checkInMinute] = workHours['check-in'].split(':').map(Number);
+                        const [checkOutHour, checkOutMinute] = workHours['check-out'].split(':').map(Number);
+
+                        // Create Date objects for comparison
+                        const workStart = new Date(startDate);
+                        workStart.setHours(checkInHour, checkInMinute, 0, 0);
+
+                        const workEnd = new Date(startDate);
+                        workEnd.setHours(checkOutHour, checkOutMinute, 0, 0);
+
+                        // Check if appointment is outside working hours
+                        if (startDate < workStart || endDate > workEnd) {
+                            setErrorMessage(
+                                `El turno está fuera del horario de trabajo de ${employee.name}. ` +
+                                `Horario disponible: ${workHours['check-in']} - ${workHours['check-out']}`
+                            );
+                            return;
+                        }
+                    }
+                }
             }
 
             setErrorMessage(null);
@@ -464,6 +498,13 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         const firstDay = getFirstDayOfMonth(year, month);
         const days = [];
 
+        // Get selected employee for work hours display
+        const selectedEmployee = filterEmployeeId !== 'all'
+            ? availableEmployees.find(e => e.id === filterEmployeeId)
+            : null;
+
+        const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
         for (let i = 0; i < firstDay; i++) {
             days.push(<div key={`empty-${i}`} className="h-32 bg-gray-50 border border-gray-100"></div>);
         }
@@ -479,6 +520,20 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
 
             const isToday = new Date().toDateString() === date.toDateString();
 
+            // Get work hours for this day
+            let workHoursDisplay = null;
+            if (selectedEmployee && selectedEmployee.weekly_work_hours) {
+                const dayName = daysOfWeek[date.getDay()];
+                const hours = selectedEmployee.weekly_work_hours[dayName];
+                if (hours && hours['check-in'] && hours['check-out']) {
+                    workHoursDisplay = (
+                        <span className="ml-2 text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                            {hours['check-in']} - {hours['check-out']}
+                        </span>
+                    );
+                }
+            }
+
             days.push(
                 <div
                     key={day}
@@ -488,7 +543,10 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                     className={`h-32 border border-gray-200 p-2 cursor-pointer hover:bg-gray-100 transition-colors overflow-y-auto relative ${isToday ? 'bg-pink-50' : 'bg-white'}`}
                 >
                     <div className="flex justify-between items-start">
-                        <span className={`text-sm font-semibold ${isToday ? 'text-pink-600' : 'text-gray-700'}`}>{day}</span>
+                        <div className="flex items-center">
+                            <span className={`text-sm font-semibold ${isToday ? 'text-pink-600' : 'text-gray-700'}`}>{day}</span>
+                            {workHoursDisplay}
+                        </div>
                     </div>
                     <div className="mt-1 space-y-1">
                         {dayEvents.map(event => (

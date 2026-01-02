@@ -32,6 +32,22 @@ export default function EmployeeDetailsPage() {
   const [deductError, setDeductError] = useState<string | null>(null);
   const [deductSuccess, setDeductSuccess] = useState(false);
 
+  // Weekly work hours state
+  const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const daysInSpanish: Record<string, string> = {
+    'Sunday': 'Domingo',
+    'Monday': 'Lunes',
+    'Tuesday': 'Martes',
+    'Wednesday': 'Miércoles',
+    'Thursday': 'Jueves',
+    'Friday': 'Viernes',
+    'Saturday': 'Sábado'
+  };
+  const [weeklyWorkHours, setWeeklyWorkHours] = useState<Record<string, { 'check-in': string; 'check-out': string }>>(
+    daysOfWeek.reduce((acc, day) => ({ ...acc, [day]: { 'check-in': '', 'check-out': '' } }), {})
+  );
+  const [isEditingWorkHours, setIsEditingWorkHours] = useState(false);
+
   useEffect(() => {
     if (!id) return;
     let isMounted = true;
@@ -46,6 +62,16 @@ export default function EmployeeDetailsPage() {
           setEditableEmploymentType(data.employmentType || 'fullTime');
           setEditableMonthlySalary(data.monthlySalary?.toString() || '');
           setEditableWeeklyWorkingHours(data.weeklyWorkingHours?.toString() || '');
+
+          // Initialize weekly work hours
+          if (data.weekly_work_hours) {
+            setWeeklyWorkHours(data.weekly_work_hours);
+          } else {
+            // Set default empty values
+            setWeeklyWorkHours(
+              daysOfWeek.reduce((acc, day) => ({ ...acc, [day]: { 'check-in': '', 'check-out': '' } }), {})
+            );
+          }
         }
       })
       .catch((err) => { if (isMounted) setError(err?.message || 'No se pudo cargar el empleado'); })
@@ -100,6 +126,36 @@ export default function EmployeeDetailsPage() {
       setDeductError(err?.message || 'Error al descontar vacaciones');
     } finally {
       setIsDeducting(false);
+    }
+  };
+
+  const handleWorkHourChange = (day: string, field: 'check-in' | 'check-out', value: string) => {
+    setWeeklyWorkHours(prev => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleSaveWorkHours = async () => {
+    if (!id || !employee) return;
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    try {
+      const updated = await updateEmployee(id, { weekly_work_hours: weeklyWorkHours });
+      setEmployee(updated);
+      setIsEditingWorkHours(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err: any) {
+      setSaveError(err?.message || 'Error al actualizar horarios de trabajo');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -380,6 +436,99 @@ export default function EmployeeDetailsPage() {
         <div className="col-span-1 md:col-span-2">
           {saveSuccess && <span className="text-green-600 text-sm block">✓ Cambios guardados correctamente</span>}
           {saveError && <span className="text-red-600 text-sm block">{saveError}</span>}
+        </div>
+      </div>
+
+      {/* Weekly Work Hours Table */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-800">Horarios Semanales</h2>
+          {canAccessAnalytics && !isEditingWorkHours && (
+            <button
+              onClick={() => setIsEditingWorkHours(true)}
+              className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 text-sm font-medium"
+            >
+              ✏️ Editar Horarios
+            </button>
+          )}
+          {canAccessAnalytics && isEditingWorkHours && (
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveWorkHours}
+                disabled={isSaving}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
+              >
+                {isSaving ? 'Guardando...' : '✓ Guardar'}
+              </button>
+              <button
+                onClick={() => {
+                  setIsEditingWorkHours(false);
+                  // Reset to original values
+                  if (employee?.weekly_work_hours) {
+                    setWeeklyWorkHours(employee.weekly_work_hours);
+                  } else {
+                    setWeeklyWorkHours(
+                      daysOfWeek.reduce((acc, day) => ({ ...acc, [day]: { 'check-in': '', 'check-out': '' } }), {})
+                    );
+                  }
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 text-sm font-medium"
+              >
+                ✕ Cancelar
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Día
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Entrada
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Salida
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {daysOfWeek.map((day) => (
+                <tr key={day} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {daysInSpanish[day]}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {isEditingWorkHours && canAccessAnalytics ? (
+                      <input
+                        type="time"
+                        value={weeklyWorkHours[day]?.['check-in'] || ''}
+                        onChange={(e) => handleWorkHourChange(day, 'check-in', e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500"
+                      />
+                    ) : (
+                      <span>{weeklyWorkHours[day]?.['check-in'] || 'N/D'}</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {isEditingWorkHours && canAccessAnalytics ? (
+                      <input
+                        type="time"
+                        value={weeklyWorkHours[day]?.['check-out'] || ''}
+                        onChange={(e) => handleWorkHourChange(day, 'check-out', e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500"
+                      />
+                    ) : (
+                      <span>{weeklyWorkHours[day]?.['check-out'] || 'N/D'}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

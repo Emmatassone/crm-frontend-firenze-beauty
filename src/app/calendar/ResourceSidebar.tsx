@@ -74,8 +74,7 @@ export default function ResourceSidebar({ onSelectClient, selectedClient }: Reso
     };
 
     const filteredClients = clients.filter(c =>
-        (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (c.email || '').toLowerCase().includes(searchTerm.toLowerCase())
+        (c.name || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const filteredEmployees = employees.filter(e =>
@@ -131,8 +130,6 @@ export default function ResourceSidebar({ onSelectClient, selectedClient }: Reso
                                 <div className="flex justify-between items-start">
                                     <div className="flex-1 min-w-0">
                                         <div className="font-medium text-gray-800 text-sm truncate">{client.name || 'Sin Nombre'}</div>
-                                        <div className="text-xs text-gray-500 truncate">{client.email || 'Sin email'}</div>
-                                        <div className="text-xs text-gray-400 mt-0.5">{client.phoneNumber || 'Sin teléfono'}</div>
                                     </div>
                                     {lastProfessionals[client.id] && (
                                         <div className="ml-2 flex flex-col items-end">
