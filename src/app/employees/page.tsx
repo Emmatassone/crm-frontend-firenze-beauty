@@ -19,8 +19,8 @@ function EmployeesPage() {
       const data = await getEmployees();
       setEmployees(data);
     } catch (e: any) {
-      console.error('Error al cargar empleados:', e);
-      setError(e.message || "No se pudieron cargar los empleados. Por favor, inténtalo más tarde.");
+      console.error('Error al cargar profesionales:', e);
+      setError(e.message || "No se pudieron cargar los profesionales. Por favor, inténtalo más tarde.");
     } finally {
       setLoading(false);
     }
@@ -35,7 +35,7 @@ function EmployeesPage() {
     setVacationMessage(null);
     try {
       const result = await calculateAllVacations();
-      setVacationMessage(`✓ Se actualizaron las vacaciones de ${result.updated} empleados.`);
+      setVacationMessage(`✓ Se actualizaron las vacaciones de ${result.updated} profesionales.`);
       // Refresh the employee list
       await fetchEmployees();
       setTimeout(() => setVacationMessage(null), 5000);
@@ -50,7 +50,7 @@ function EmployeesPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center">
-          <div className="text-lg">Cargando empleados...</div>
+          <div className="text-lg">Cargando profesionales...</div>
         </div>
       </div>
     );
@@ -59,7 +59,7 @@ function EmployeesPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Empleados</h1>
+        <h1 className="text-3xl font-bold text-gray-800">Profesionales</h1>
         <div className="flex gap-3">
           {canAccessAnalytics && (
             <button
@@ -71,7 +71,7 @@ function EmployeesPage() {
             </button>
           )}
           <Link href="/employees/new" className="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">
-            Agregar Nuevo Empleado
+            Agregar Nuevo Profesional
           </Link>
         </div>
       </div>
@@ -90,7 +90,7 @@ function EmployeesPage() {
       )}
 
       {!error && employees.length === 0 && (
-        <p className="text-gray-600">No hay empleados registrados. ¡Comienza agregando uno nuevo!</p>
+        <p className="text-gray-600">No hay profesionales registrados. ¡Comienza agregando uno nuevo!</p>
       )}
 
       {!error && (

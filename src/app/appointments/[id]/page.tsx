@@ -249,7 +249,7 @@ export default function AppointmentDetailsPage() {
         </div>
 
         <div>
-          <label className="text-sm text-gray-500 block">Empleado que Atendió</label>
+          <label className="text-sm text-gray-500 block">Profesional que Atendió</label>
           {isEditing ? (
             <input
               type="text"

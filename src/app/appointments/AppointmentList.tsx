@@ -58,7 +58,7 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
       <div className="mb-4">
         <input
           type="text"
-          placeholder="Buscar por cliente, fecha, servicio, empleado..."
+          placeholder="Buscar por cliente, fecha, servicio, profesional..."
           className="mt-1 block w-full md:w-1/2 lg:w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -84,7 +84,7 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
                   <th scope="col" className={thStyle}>Cliente</th>
                   <th scope="col" className={thStyle}>Servicio</th>
                   <th scope="col" className={thStyle}>Fecha</th>
-                  <th scope="col" className={thStyle}>Empleado</th>
+                  <th scope="col" className={thStyle}>Profesional</th>
                   <th scope="col" className={thStyle}>Acciones</th>
                 </tr>
               </thead>

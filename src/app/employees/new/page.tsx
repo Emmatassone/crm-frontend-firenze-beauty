@@ -17,7 +17,7 @@ export default function NewEmployeePage() {
     setError(null);
 
     if (data.password === '') {
-      setError('La contraseña es requerida para nuevos empleados.');
+      setError('La contraseña es requerida para nuevos profesionales.');
       setIsLoading(false);
       return;
     }
@@ -36,7 +36,7 @@ export default function NewEmployeePage() {
       const newEmployee = await createEmployee(payload);
       router.push(`/employees/${newEmployee.id}`);
     } catch (e: any) {
-      setError(e.message || 'Error al crear empleado.');
+      setError(e.message || 'Error al crear profesional.');
     }
     setIsLoading(false);
   };
@@ -44,9 +44,9 @@ export default function NewEmployeePage() {
   return (
     <div className="max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Agregar Nuevo Empleado</h1>
+        <h1 className="text-3xl font-bold text-gray-800">Agregar Nuevo Profesional</h1>
         <Link href="/employees" className="text-pink-600 hover:text-pink-700 transition">
-          &larr; Volver a Empleados
+          &larr; Volver a Profesionales
         </Link>
       </div>
 

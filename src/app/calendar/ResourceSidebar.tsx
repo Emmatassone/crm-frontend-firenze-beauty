@@ -103,7 +103,7 @@ export default function ResourceSidebar({ onSelectClient, selectedClient }: Reso
                         className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${activeTab === 'employees' ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
                             }`}
                     >
-                        Empleados
+                        Profesionales
                     </button>
                 </div>
                 <input

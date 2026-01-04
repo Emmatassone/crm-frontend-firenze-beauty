@@ -139,7 +139,7 @@ export default function AnalyticsPage() {
   const tabNames = {
     dashboard: 'Panel',
     finance: 'Finanzas',
-    employees: 'Empleados',
+    employees: 'Profesionales',
     clients: 'Clientes'
   };
 
@@ -179,7 +179,7 @@ export default function AnalyticsPage() {
                   <p className="text-3xl font-bold mt-2">{formatCurrency(dashboardData.finance?.total_revenue || 0)}</p>
                 </div>
                 <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-6 text-white">
-                  <h3 className="text-sm font-medium opacity-80">Mejor Empleado (Clientes)</h3>
+                  <h3 className="text-sm font-medium opacity-80">Mejor Profesional (Clientes)</h3>
                   <p className="text-2xl font-bold mt-2">{dashboardData.topEmployees?.[0]?.employee_name || 'N/A'}</p>
                   <p className="text-sm opacity-80">{dashboardData.topEmployees?.[0]?.clients_attended || 0} clientes</p>
                 </div>
@@ -294,7 +294,7 @@ export default function AnalyticsPage() {
               {/* Employee Filter */}
               <div className="bg-white rounded-lg shadow-md p-6">
                 <label htmlFor="employee-select" className="block text-sm font-medium text-gray-700 mb-2">
-                  Seleccionar Empleado
+                  Seleccionar Profesional
                 </label>
                 <select
                   id="employee-select"
@@ -302,7 +302,7 @@ export default function AnalyticsPage() {
                   value={selectedEmployee || ''}
                   onChange={(e) => setSelectedEmployee(e.target.value || null)}
                 >
-                  <option value="">Todos los empleados</option>
+                  <option value="">Todos los profesionales</option>
                   {activeEmployees.map(employee => (
                     <option key={employee.id} value={employee.name}>{employee.name}</option>
                   ))}
@@ -312,7 +312,7 @@ export default function AnalyticsPage() {
               {/* Historical Revenue by Employee */}
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                  Ingresos Históricos {selectedEmployee ? `- ${selectedEmployee}` : 'por Empleado'}
+                  Ingresos Históricos {selectedEmployee ? `- ${selectedEmployee}` : 'por Profesional'}
                 </h2>
                 <div className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
@@ -376,7 +376,7 @@ export default function AnalyticsPage() {
               {/* Employee Efficiency Metrics - Current Month */}
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                  Eficiencia de Empleados (Mes Actual)
+                  Eficiencia de Profesionales (Mes Actual)
                 </h2>
                 <div className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
@@ -599,10 +599,10 @@ export default function AnalyticsPage() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 text-sm text-gray-600">
                   <div className="p-3 bg-green-50 rounded border border-green-100">
-                    <span className="font-semibold text-green-700">Retención:</span> Clientes que regresan al MISMO empleado.
+                    <span className="font-semibold text-green-700">Retención:</span> Clientes que regresan al MISMO profesional.
                   </div>
                   <div className="p-3 bg-yellow-50 rounded border border-yellow-100">
-                    <span className="font-semibold text-yellow-700">Migración:</span> Clientes que regresan pero CAMBIAN de empleado.
+                    <span className="font-semibold text-yellow-700">Migración:</span> Clientes que regresan pero CAMBIAN de profesional.
                   </div>
                   <div className="p-3 bg-blue-50 rounded border border-blue-100">
                     <span className="font-semibold text-blue-700">Nuevos:</span> Clientes que nunca habían sido atendidos.

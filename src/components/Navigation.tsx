@@ -10,7 +10,7 @@ export default function Navigation() {
   const { isAdmin, canAccessAnalytics, logout } = useAuthStore();
 
   const navLinks = [
-    ...(isAdmin ? [{ href: '/employees', label: 'Empleados' }] : []),
+    ...(isAdmin ? [{ href: '/employees', label: 'Profesionales' }] : []),
     { href: '/products', label: 'Productos' },
     { href: '/services', label: 'Servicios' },
     { href: '/clients', label: 'Clientes' },
@@ -39,8 +39,8 @@ export default function Navigation() {
             key={href}
             href={href}
             className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isActive(href)
-                ? 'bg-pink-700 text-white shadow-md'
-                : 'text-pink-100 hover:bg-pink-500 hover:text-white'
+              ? 'bg-pink-700 text-white shadow-md'
+              : 'text-pink-100 hover:bg-pink-500 hover:text-white'
               }`}
           >
             {label}
@@ -55,8 +55,8 @@ export default function Navigation() {
           <Link
             href="/analytics"
             className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${isAnalyticsActive
-                ? 'bg-indigo-600 text-white shadow-lg ring-2 ring-indigo-400'
-                : 'bg-indigo-500/20 text-indigo-100 hover:bg-indigo-500 hover:text-white border border-indigo-400/50'
+              ? 'bg-indigo-600 text-white shadow-lg ring-2 ring-indigo-400'
+              : 'bg-indigo-500/20 text-indigo-100 hover:bg-indigo-500 hover:text-white border border-indigo-400/50'
               }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">

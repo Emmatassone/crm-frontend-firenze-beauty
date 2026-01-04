@@ -12,7 +12,7 @@ const appointmentSchema = z.object({
   appointmentDate: z.string().min(1, 'La fecha es requerida').refine(val => {
     return /^\d{2}-\d{2}-\d{4}$/.test(val);
   }, { message: 'La fecha debe ser DD-MM-AAAA' }),
-  attendedEmployee: z.string().min(1, 'El empleado es requerido'),
+  attendedEmployee: z.string().min(1, 'El profesional es requerido'),
   clientName: z.string().min(1, 'El nombre del cliente es requerido'),
   clientId: z.string().min(1, 'El ID del cliente es requerido'),
   arrivalTime: z.string().optional(),
@@ -222,7 +222,7 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
       <div>
         <label htmlFor="attendedEmployee" className={labelStyle}>Atendido por</label>
         <select id="attendedEmployee" {...register('attendedEmployee')} className={`${inputStyle} ${errors.attendedEmployee ? 'border-red-500' : ''}`}>
-          <option value="">Seleccione un empleado</option>
+          <option value="">Seleccione un profesional</option>
           {employees.map(employee => (
             <option key={employee.id} value={employee.name}>{employee.name}</option>
           ))}

@@ -18,7 +18,7 @@ export default function HomePage() {
 
   // Define all possible service cards with descriptions
   const allServiceCards: ServiceCard[] = [
-    ...(isAdmin ? [{ href: '/employees', label: 'Empleados', description: 'Administrar empleados y sus permisos.' }] : []),
+    ...(isAdmin ? [{ href: '/employees', label: 'Profesionales', description: 'Administrar profesionales y sus permisos.' }] : []),
     ...(!isLevel123 ? [{ href: '/products', label: 'Productos', description: 'Administrar inventario y ventas de productos.' }] : []),
     ...(!isLevel123 ? [{ href: '/services', label: 'Servicios', description: 'Administrar servicios disponibles.' }] : []),
     { href: '/clients', label: 'Clientes', description: 'Ver, agregar y administrar perfiles detallados de clientes.' },

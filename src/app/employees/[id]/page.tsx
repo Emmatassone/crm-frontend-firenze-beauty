@@ -74,7 +74,7 @@ export default function EmployeeDetailsPage() {
           }
         }
       })
-      .catch((err) => { if (isMounted) setError(err?.message || 'No se pudo cargar el empleado'); })
+      .catch((err) => { if (isMounted) setError(err?.message || 'No se pudo cargar el profesional'); })
       .finally(() => { if (isMounted) setIsLoading(false); });
     return () => { isMounted = false; };
   }, [id]);
@@ -160,13 +160,13 @@ export default function EmployeeDetailsPage() {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-[40vh] text-gray-700 animate-pulse">Cargando empleado…</div>;
+    return <div className="flex items-center justify-center min-h-[40vh] text-gray-700 animate-pulse">Cargando profesional…</div>;
   }
 
   if (error || !employee) {
     return (
       <div className="space-y-4">
-        <p className="text-red-600">{error || 'Empleado no encontrado'}</p>
+        <p className="text-red-600">{error || 'Profesional no encontrado'}</p>
         <button onClick={() => router.back()} className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800">Volver</button>
       </div>
     );
@@ -181,7 +181,7 @@ export default function EmployeeDetailsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-800">Detalle de Empleado</h1>
+        <h1 className="text-2xl font-semibold text-gray-800">Detalle de Profesional</h1>
         <button onClick={() => router.back()} className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800">Volver</button>
       </div>
 
@@ -236,7 +236,7 @@ export default function EmployeeDetailsPage() {
 
       {!employee.hireDate && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800">
-          <strong>Nota:</strong> Este empleado no tiene fecha de contratación registrada. Configure la fecha de contratación para calcular las vacaciones.
+          <strong>Nota:</strong> Este profesional no tiene fecha de contratación registrada. Configure la fecha de contratación para calcular las vacaciones.
         </div>
       )}
 

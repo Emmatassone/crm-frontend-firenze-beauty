@@ -189,7 +189,7 @@ export default function EmployeeForm({ onSubmit, isLoading, defaultValues, isEdi
           Cancelar
         </Link>
         <button type="submit" disabled={isLoading} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 disabled:opacity-50">
-          {isLoading ? 'Guardando...' : (isEdit ? 'Actualizar Empleado' : 'Guardar Empleado')}
+          {isLoading ? 'Guardando...' : (isEdit ? 'Actualizar Profesional' : 'Guardar Profesional')}
         </button>
       </div>
     </form>

@@ -99,7 +99,7 @@ export default function SidebarNavigation() {
                     <NavItem href="/" label="Inicio" icon={BsGrid} />
 
                     {store.isAdmin && (
-                        <NavItem href="/employees" label="Empleados" icon={BsPeople} />
+                        <NavItem href="/employees" label="Profesionales" icon={BsPeople} />
                     )}
 
                     {/* Levels 1, 2, 3 cannot see Products, Services, and Sales */}

@@ -41,10 +41,10 @@ export default function EmployeeList({ initialEmployees }: EmployeeListProps) {
       </div>
 
       {filteredEmployees.length === 0 && searchTerm && (
-        <p className="text-gray-600">No se encontraron empleados con el término "{searchTerm}".</p>
+        <p className="text-gray-600">No se encontraron profesionales con el término "{searchTerm}".</p>
       )}
       {filteredEmployees.length === 0 && !searchTerm && initialEmployees.length > 0 && (
-        <p className="text-gray-600">No hay empleados que coincidan con su búsqueda actual, pero sí hay empleados registrados.</p>
+        <p className="text-gray-600">No hay profesionales que coincidan con su búsqueda actual, pero sí hay profesionales registrados.</p>
       )}
 
       {filteredEmployees.length > 0 && (
