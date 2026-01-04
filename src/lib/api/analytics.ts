@@ -62,6 +62,7 @@ export const getFinanceMonthlyRevenue = (): Promise<any[]> => request('/analytic
 
 // Employees
 export const getEmployeeMonthlyPerformance = (): Promise<any[]> => request('/analytics/employees');
+export const getEmployeeRetentionFacts = (): Promise<any[]> => request('/analytics/employees/retention');
 
 // Clients
 export const getClientMonthlyBehavior = (): Promise<any[]> => request('/analytics/clients');

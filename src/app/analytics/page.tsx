@@ -6,6 +6,7 @@ import {
   getFinanceMonthlyRevenue,
   getEmployeeMonthlyPerformance,
   getClientMonthlyBehavior,
+  getEmployeeRetentionFacts
 } from '@/lib/api/analytics';
 import { getEmployees } from '@/lib/api';
 import {
@@ -35,6 +36,7 @@ export default function AnalyticsPage() {
   const [dashboardData, setDashboardData] = useState<any | null>(null);
   const [financeData, setFinanceData] = useState<any[]>([]);
   const [employeeData, setEmployeeData] = useState<any[]>([]);
+  const [retentionData, setRetentionData] = useState<any[]>([]);
   const [clientData, setClientData] = useState<any[]>([]);
   const [activeEmployees, setActiveEmployees] = useState<any[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
@@ -70,11 +72,13 @@ export default function AnalyticsPage() {
   const loadEmployeeData = async () => {
     try {
       setLoading(true);
-      const [analyticsData, employeesList] = await Promise.all([
+      const [analyticsData, employeesList, retention] = await Promise.all([
         getEmployeeMonthlyPerformance(),
-        getEmployees()
+        getEmployees(),
+        getEmployeeRetentionFacts()
       ]);
       setEmployeeData(analyticsData);
+      setRetentionData(retention);
       setActiveEmployees(employeesList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load employee analytics');
@@ -520,6 +524,71 @@ export default function AnalyticsPage() {
                   </div>
                 );
               })()}
+
+              {/* Retention Metrics Chart */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                  Retención de Clientes {selectedEmployee ? `- ${selectedEmployee}` : 'Promedio Compañía'}
+                </h2>
+                <div className="h-96">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={(() => {
+                      const relevantData = retentionData || [];
+
+                      const months = Array.from(new Set(relevantData.map((d: any) => d.month))).sort();
+
+                      const chartData = months.map(month => {
+                        if (selectedEmployee) {
+                          const record = relevantData.find((d: any) => d.month === month && d.employee_name === selectedEmployee);
+                          return {
+                            month,
+                            retention_rate: record ? Number(record.retention_rate) * 100 : null,
+                            migration_rate: record ? Number(record.client_migration_rate) * 100 : null,
+                            new_client_rate: record ? Number(record.new_client_rate) * 100 : null
+                          };
+                        } else {
+                          // Average for all employees
+                          const records = relevantData.filter((d: any) => d.month === month);
+                          if (records.length === 0) return { month };
+
+                          const avgRetention = records.reduce((sum: number, r: any) => sum + Number(r.retention_rate), 0) / records.length;
+                          const avgMigration = records.reduce((sum: number, r: any) => sum + Number(r.client_migration_rate), 0) / records.length;
+                          const avgNew = records.reduce((sum: number, r: any) => sum + Number(r.new_client_rate), 0) / records.length;
+
+                          return {
+                            month,
+                            retention_rate: avgRetention * 100,
+                            migration_rate: avgMigration * 100,
+                            new_client_rate: avgNew * 100
+                          };
+                        }
+                      });
+
+                      return chartData;
+                    })()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis label={{ value: '%', position: 'insideLeft' }} />
+                      <Tooltip formatter={(value: number) => [`${value ? value.toFixed(1) : 0}%`, '']} />
+                      <Legend />
+                      <Line type="monotone" dataKey="retention_rate" name="Tasa Retención" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="migration_rate" name="Tasa Migración (Switch)" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="new_client_rate" name="Tasa Nuevos" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 text-sm text-gray-600">
+                  <div className="p-3 bg-green-50 rounded border border-green-100">
+                    <span className="font-semibold text-green-700">Retención:</span> Clientes que regresan al MISMO empleado.
+                  </div>
+                  <div className="p-3 bg-yellow-50 rounded border border-yellow-100">
+                    <span className="font-semibold text-yellow-700">Migración:</span> Clientes que regresan pero CAMBIAN de empleado.
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded border border-blue-100">
+                    <span className="font-semibold text-blue-700">Nuevos:</span> Clientes que nunca habían sido atendidos.
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

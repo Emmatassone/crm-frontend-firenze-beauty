@@ -10,11 +10,9 @@ async function handleResponse<T>(response: Response): Promise<T> {
     const errorData = await response.json().catch(() => ({ message: response.statusText }));
     throw new Error(errorData.message || 'API request failed');
   }
-  // For 204 No Content, response.json() will fail, so handle it specifically
-  if (response.status === 204) {
-    return null as T; // Or an appropriate empty representation
-  }
-  return response.json();
+
+  const text = await response.text();
+  return text ? JSON.parse(text) : (null as any);
 }
 
 // Generic request function with authentication
@@ -259,6 +257,7 @@ export interface AppointmentSchedule {
   employeeId?: string; // Optional relation
   serviceId?: string; // Optional relation
   notes?: string;
+  deposit?: number;
   isAllDay: boolean;
   createdAt?: string; // Optional if not needed on frontend yet
   updatedAt?: string;

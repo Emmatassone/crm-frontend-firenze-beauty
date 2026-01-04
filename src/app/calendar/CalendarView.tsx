@@ -58,6 +58,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [filterEmployeeId, setFilterEmployeeId] = useState<string>('all');
     const [isActionModalOpen, setIsActionModalOpen] = useState(false);
     const [selectedEventForAction, setSelectedEventForAction] = useState<AppointmentSchedule | null>(null);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [eventToDelete, setEventToDelete] = useState<string | null>(null);
     const router = useRouter();
 
     // Form state
@@ -71,6 +74,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         clientId: undefined,
         employeeId: undefined,
         serviceId: undefined,
+        deposit: undefined,
     });
 
     const { token, isTokenValid, level, name, email } = useAuthStore();
@@ -215,10 +219,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             end: formatToLocalISO(end),
             notes: '',
             isAllDay: false,
-            clientName: '',
-            clientId: undefined,
             employeeId: undefined,
             serviceId: undefined,
+            deposit: undefined,
             ...prefilledData
         });
         setSelectedServices([]);
@@ -293,6 +296,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             clientId: event.clientId,
             employeeId: event.employeeId,
             serviceId: event.serviceId,
+            deposit: event.deposit,
         });
 
         // Try to identify selected services from availableServices if title contains them
@@ -340,15 +344,29 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
 
     const handleDeleteFromAction = async () => {
         if (!selectedEventForAction) return;
-        if (confirm('¿Estás seguro de eliminar este turno programado?')) {
-            try {
-                await deleteAppointmentSchedule(selectedEventForAction.id);
-                setIsActionModalOpen(false);
-                fetchData();
-            } catch (error) {
-                console.error('Error deleting event', error);
-            }
+        setEventToDelete(selectedEventForAction.id);
+        setIsDeleteConfirmOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!eventToDelete) return;
+        try {
+            await deleteAppointmentSchedule(eventToDelete);
+            setIsDeleteConfirmOpen(false);
+            setIsActionModalOpen(false);
+            setIsModalOpen(false);
+            setEventToDelete(null);
+            fetchData();
+            showSuccess('Turno eliminado correctamente');
+        } catch (error) {
+            console.error('Error deleting event', error);
+            alert('Error al eliminar el turno');
         }
+    };
+
+    const showSuccess = (message: string) => {
+        setSuccessMessage(message);
+        setTimeout(() => setSuccessMessage(null), 3000);
     };
 
     const handleSave = async (e: React.FormEvent) => {
@@ -443,15 +461,8 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
 
     const handleDelete = async () => {
         if (!editingEvent) return;
-        if (confirm('¿Estás seguro de eliminar este turno?')) {
-            try {
-                await deleteAppointmentSchedule(editingEvent.id);
-                setIsModalOpen(false);
-                fetchData();
-            } catch (error) {
-                console.error('Error deleting event', error);
-            }
-        }
+        setEventToDelete(editingEvent.id);
+        setIsDeleteConfirmOpen(true);
     };
 
     const serviceOptions = useMemo(() => {
@@ -553,8 +564,8 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                             <div
                                 key={event.id}
                                 onClick={(e) => handleEventClick(e, event)}
-                                className={`text-xs p-1 rounded text-white truncate shadow-sm transition-opacity hover:opacity-80 cursor-pointer ${getEmployeeColor(event.employeeId)}`}
-                                title={`${event.title} - ${new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} a ${new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                                className={`text-xs p-1 rounded text-white truncate shadow-sm transition-opacity hover:opacity-80 cursor-pointer ${event.deposit ? 'bg-emerald-600' : 'bg-amber-500'}`}
+                                title={`${event.title}${event.deposit ? ` (Seña: $${event.deposit})` : ' (Sin seña)'} - ${new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} a ${new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
                             >
                                 {!event.isAllDay && (
                                     <div className="flex flex-col mb-0.5">
@@ -563,7 +574,14 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                         </span>
                                     </div>
                                 )}
-                                <div className="font-medium truncate">{event.title}</div>
+                                <div className="font-medium truncate flex items-center justify-between">
+                                    <span>{event.title}</span>
+                                    {event.deposit && (
+                                        <span className="text-[10px] bg-white/20 px-1 rounded ml-1 font-bold">
+                                            ${event.deposit}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -666,6 +684,48 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                     </div>
                                 </div>
                             )}
+
+                            {/* Fixed Date Display */}
+                            <div className="bg-gradient-to-br from-pink-50 to-white border border-pink-100 rounded-2xl p-4 flex items-center space-x-4 shadow-sm">
+                                <div className="bg-pink-600 p-3 rounded-xl shadow-md shadow-pink-200">
+                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-[10px] font-bold text-pink-500 uppercase tracking-widest mb-0.5">Día Seleccionado</p>
+                                    <p className="text-base font-extrabold text-gray-900 capitalize">
+                                        {formData.start ? (() => {
+                                            const [datePart] = formData.start.split('T');
+                                            const [y, m, d] = datePart.split('-').map(Number);
+                                            return new Date(y, m - 1, d).toLocaleDateString('es-ES', {
+                                                weekday: 'long',
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric'
+                                            });
+                                        })() : '-'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Seña (Monto)</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span className="text-gray-500 sm:text-sm font-bold">$</span>
+                                    </div>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 pl-7 border"
+                                        placeholder="Ingrese monto o dejar en blanco para 'NA'"
+                                        value={formData.deposit || ''}
+                                        onChange={(e) => setFormData({ ...formData, deposit: e.target.value === '' ? undefined : Number(e.target.value) })}
+                                    />
+                                </div>
+                                <p className="mt-1 text-[10px] text-gray-400">Si el campo queda vacío aparecerá como 'NA' y el turno será amarillo.</p>
+                            </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -779,37 +839,36 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Inicio</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Hora Inicio</label>
                                     <input
-                                        type="datetime-local"
+                                        type="time"
                                         required
                                         className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 border"
-                                        value={formData.start}
-                                        onChange={(e) => setFormData({ ...formData, start: e.target.value })}
+                                        value={formData.start?.split('T')[1]?.substring(0, 5) || ''}
+                                        onChange={(e) => {
+                                            const time = e.target.value;
+                                            const datePart = formData.start.split('T')[0];
+                                            setFormData({ ...formData, start: `${datePart}T${time}` });
+                                        }}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Fin</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Hora Fin</label>
                                     <input
-                                        type="datetime-local"
+                                        type="time"
                                         required
                                         className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 border"
-                                        value={formData.end}
-                                        onChange={(e) => setFormData({ ...formData, end: e.target.value })}
+                                        value={formData.end?.split('T')[1]?.substring(0, 5) || ''}
+                                        onChange={(e) => {
+                                            const time = e.target.value;
+                                            const datePart = formData.end.split('T')[0];
+                                            setFormData({ ...formData, end: `${datePart}T${time}` });
+                                        }}
                                     />
                                 </div>
                             </div>
 
-                            <div className="flex items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
-                                <input
-                                    id="isAllDay"
-                                    type="checkbox"
-                                    className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-                                    checked={formData.isAllDay}
-                                    onChange={(e) => setFormData({ ...formData, isAllDay: e.target.checked })}
-                                />
-                                <label htmlFor="isAllDay" className="ml-2 block text-sm text-gray-900">Todo el día</label>
-                            </div>
+
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Notas / Detalles</label>
@@ -892,6 +951,51 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                 Cerrar
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+            {isDeleteConfirmOpen && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-8 text-center">
+                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">¿Confirmar eliminación?</h3>
+                            <p className="text-gray-500 mb-8">Esta acción no se puede deshacer. ¿Estás seguro de eliminar este turno programado?</p>
+                            <div className="flex space-x-3">
+                                <button
+                                    onClick={() => {
+                                        setIsDeleteConfirmOpen(false);
+                                        setEventToDelete(null);
+                                    }}
+                                    className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={confirmDelete}
+                                    className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors shadow-lg shadow-red-200"
+                                >
+                                    Eliminar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {successMessage && (
+                <div className="fixed bottom-8 right-8 z-[80] animate-in slide-in-from-right-full duration-300">
+                    <div className="bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center space-x-3 border border-emerald-400/20">
+                        <div className="bg-white/20 rounded-full p-1">
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <p className="font-bold tracking-wide">{successMessage}</p>
                     </div>
                 </div>
             )}
