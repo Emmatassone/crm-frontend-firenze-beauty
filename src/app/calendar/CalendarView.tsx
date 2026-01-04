@@ -61,7 +61,12 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [eventToDelete, setEventToDelete] = useState<string | null>(null);
+    const [mounted, setMounted] = useState(false);
     const router = useRouter();
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // Form state
     const [formData, setFormData] = useState<CreateAppointmentScheduleDto>({
@@ -451,6 +456,13 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             }
 
             setErrorMessage(null);
+
+            // Ensure dates are sent as UTC ISO strings
+            const startISO = new Date(finalData.start).toISOString();
+            const endISO = new Date(finalData.end).toISOString();
+            finalData.start = startISO;
+            finalData.end = endISO;
+
             if (editingEvent) {
                 await updateAppointmentSchedule(editingEvent.id, finalData);
             } else {
@@ -575,7 +587,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                 className={`text-xs p-1 rounded text-white truncate shadow-sm transition-opacity hover:opacity-80 cursor-pointer ${event.deposit ? 'bg-emerald-600' : 'bg-amber-500'}`}
                                 title={`${event.title}${event.deposit ? ` (Seña: $${event.deposit})` : ' (Sin seña)'} - ${new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} a ${new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
                             >
-                                {!event.isAllDay && (
+                                {mounted && !event.isAllDay && (
                                     <div className="flex flex-col mb-0.5">
                                         <span className="font-mono text-[9px] opacity-90 leading-tight">
                                             {new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
