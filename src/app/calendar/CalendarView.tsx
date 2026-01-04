@@ -311,6 +311,14 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         if (!selectedEventForAction) return;
         const event = selectedEventForAction;
 
+        if (!event.clientId) {
+            // New Client: Redirect to /clients/new to register them first
+            const params = new URLSearchParams();
+            if (event.clientName) params.set('name', event.clientName);
+            router.push(`/clients/new?${params.toString()}`);
+            return;
+        }
+
         const date = new Date(event.start);
         const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');

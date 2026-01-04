@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { SubmitHandler } from 'react-hook-form';
 import { createClientProfile, CreateClientProfileDto } from '@/lib/api';
 import { useAuthStore } from '@/lib/store/auth';
 import ClientForm, { ClientFormValues } from '../ClientForm';
 
-export default function NewClientPage() {
+function NewClientContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefilledName = searchParams.get('name') || '';
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { isViewOnly } = useAuthStore();
@@ -67,9 +69,18 @@ export default function NewClientPage() {
         onSubmit={onSubmit}
         isLoading={isLoading}
         defaultValues={{
+          name: prefilledName,
           dateOfBirth: new Date().toISOString(),
         }}
       />
     </div>
+  );
+}
+
+export default function NewClientPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Cargando...</div>}>
+      <NewClientContent />
+    </Suspense>
   );
 } 
