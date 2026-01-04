@@ -544,7 +544,10 @@ export default function AnalyticsPage() {
                             month,
                             retention_rate: record ? Number(record.retention_rate) * 100 : null,
                             migration_rate: record ? Number(record.client_migration_rate) * 100 : null,
-                            new_client_rate: record ? Number(record.new_client_rate) * 100 : null
+                            new_client_rate: record ? Number(record.new_client_rate) * 100 : null,
+                            retained_count: record ? record.retained_clients : 0,
+                            migrated_count: record ? record.migrated_clients : 0,
+                            new_count: record ? record.new_clients : 0
                           };
                         } else {
                           // Average for all employees
@@ -555,11 +558,18 @@ export default function AnalyticsPage() {
                           const avgMigration = records.reduce((sum: number, r: any) => sum + Number(r.client_migration_rate), 0) / records.length;
                           const avgNew = records.reduce((sum: number, r: any) => sum + Number(r.new_client_rate), 0) / records.length;
 
+                          const totalRetained = records.reduce((sum: number, r: any) => sum + Number(r.retained_clients || 0), 0);
+                          const totalMigrated = records.reduce((sum: number, r: any) => sum + Number(r.migrated_clients || 0), 0);
+                          const totalNew = records.reduce((sum: number, r: any) => sum + Number(r.new_clients || 0), 0);
+
                           return {
                             month,
                             retention_rate: avgRetention * 100,
                             migration_rate: avgMigration * 100,
-                            new_client_rate: avgNew * 100
+                            new_client_rate: avgNew * 100,
+                            retained_count: totalRetained,
+                            migrated_count: totalMigrated,
+                            new_count: totalNew
                           };
                         }
                       });
@@ -569,7 +579,17 @@ export default function AnalyticsPage() {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis label={{ value: '%', position: 'insideLeft' }} />
-                      <Tooltip formatter={(value: number) => [`${value ? value.toFixed(1) : 0}%`, '']} />
+                      <Tooltip
+                        formatter={(value: number, name: string, props: any) => {
+                          const { payload } = props;
+                          let count = 0;
+                          if (name === "Tasa Retención") count = payload.retained_count;
+                          else if (name === "Tasa Migración (Switch)") count = payload.migrated_count;
+                          else if (name === "Tasa Nuevos") count = payload.new_count;
+
+                          return [`${value ? value.toFixed(1) : 0}% (${count})`, name];
+                        }}
+                      />
                       <Legend />
                       <Line type="monotone" dataKey="retention_rate" name="Tasa Retención" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
                       <Line type="monotone" dataKey="migration_rate" name="Tasa Migración (Switch)" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} />
