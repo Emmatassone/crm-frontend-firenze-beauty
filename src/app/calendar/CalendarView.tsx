@@ -670,15 +670,15 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
 
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        <div className={`px-6 py-4 flex justify-between items-center ${formData.clientId ? 'bg-purple-600' : 'bg-pink-600'}`}>
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className={`px-6 py-4 flex-shrink-0 flex justify-between items-center ${formData.clientId ? 'bg-purple-600' : 'bg-pink-600'}`}>
                             <h3 className="text-lg font-bold text-white">{editingEvent ? 'Editar Turno' : 'Nuevo Turno'}</h3>
                             <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white transition-colors">
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
 
-                        <form onSubmit={handleSave} className="p-6 space-y-5">
+                        <form onSubmit={handleSave} className="p-6 space-y-5 overflow-y-auto flex-1">
                             {errorMessage && (
                                 <div className="bg-red-50 border-l-4 border-red-500 p-4 animate-in slide-in-from-top-2 duration-300">
                                     <div className="flex items-center">
