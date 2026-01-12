@@ -6,6 +6,7 @@ interface AuthState {
   token: string | null;
   email: string | null;
   name: string | null;
+  userId: string | null; // Added userId
   level: string | null;
   isAdmin: boolean;
   isViewOnly: boolean;
@@ -35,6 +36,7 @@ export const useAuthStore = create<AuthState>(
       token: null,
       email: null,
       name: null,
+      userId: null,
       level: null,
       isAdmin: false,
       isViewOnly: true,
@@ -43,20 +45,20 @@ export const useAuthStore = create<AuthState>(
       login: (token: string) => {
         try {
           const decoded = jwtDecode<JwtPayload>(token);
-          const { email, name, level } = decoded;
+          const { email, name, level, sub } = decoded;
           const isAdmin = level === '5' || level === '6';
           const isViewOnly = level === '1';
           const canManageProducts = level === '4' || level === '5' || level === '6';
           const canAccessAnalytics = level === '6';
-          set({ token, email, name: name || null, level: level || null, isAdmin, isViewOnly, canManageProducts, canAccessAnalytics });
+          set({ token, email, name: name || null, userId: sub, level: level || null, isAdmin, isViewOnly, canManageProducts, canAccessAnalytics });
         } catch (error) {
           console.error('Failed to decode JWT token:', error);
           // Reset auth state on invalid token
-          set({ token: null, email: null, name: null, level: null, isAdmin: false, isViewOnly: true, canManageProducts: false, canAccessAnalytics: false });
+          set({ token: null, email: null, name: null, userId: null, level: null, isAdmin: false, isViewOnly: true, canManageProducts: false, canAccessAnalytics: false });
         }
       },
       logout: () => {
-        set({ token: null, email: null, name: null, level: null, isAdmin: false, isViewOnly: true, canManageProducts: false, canAccessAnalytics: false });
+        set({ token: null, email: null, name: null, userId: null, level: null, isAdmin: false, isViewOnly: true, canManageProducts: false, canAccessAnalytics: false });
       },
       isTokenValid: () => {
         const { token } = get();

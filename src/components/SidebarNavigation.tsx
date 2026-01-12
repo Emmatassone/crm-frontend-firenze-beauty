@@ -15,7 +15,8 @@ import {
     BsGraphUp,
     BsBoxArrowRight,
     BsChevronLeft,
-    BsChevronRight
+    BsChevronRight,
+    BsPersonBadge
 } from 'react-icons/bs';
 
 export default function SidebarNavigation() {
@@ -113,6 +114,9 @@ export default function SidebarNavigation() {
 
                     <NavItem href="/clients" label="Clientes" icon={BsPerson} />
                     <NavItem href="/appointments" label="Citas" icon={BsCalendarCheck} />
+
+                    <div className={`mx-4 my-3 border-b border-gray-100 ${isCollapsed ? 'mx-2' : ''}`}></div>
+                    <NavItem href="/profile" label="Perfil" icon={BsPersonBadge} />
 
                     {store.canAccessAnalytics && (
                         <>
