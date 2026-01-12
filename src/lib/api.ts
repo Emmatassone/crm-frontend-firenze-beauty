@@ -259,6 +259,7 @@ export interface AppointmentSchedule {
   notes?: string;
   deposit?: number;
   isAllDay: boolean;
+  status?: string;
   createdAt?: string; // Optional if not needed on frontend yet
   updatedAt?: string;
 }

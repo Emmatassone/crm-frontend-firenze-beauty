@@ -53,7 +53,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [availableServices, setAvailableServices] = useState<Service[]>([]);
     const [availableClients, setAvailableClients] = useState<ClientProfile[]>([]);
     const [selectedServices, setSelectedServices] = useState<any[]>([]);
-    const [servicesWithPerformanceData, setServicesWithPerformanceData] = useState<Set<string>>(new Set());
+    const [serviceDataSources, setServiceDataSources] = useState<Record<string, 'personal' | 'default'>>({});
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [filterEmployeeId, setFilterEmployeeId] = useState<string>('all');
     const [isActionModalOpen, setIsActionModalOpen] = useState(false);
@@ -80,6 +80,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         employeeId: undefined,
         serviceId: undefined,
         deposit: undefined,
+        status: 'pending',
     });
 
     const { token, isTokenValid, level, name, email } = useAuthStore();
@@ -126,7 +127,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     useEffect(() => {
         const calculateDuration = async () => {
             if (!formData.employeeId || selectedServices.length === 0 || !formData.start) {
-                setServicesWithPerformanceData(new Set());
+                setServiceDataSources({});
                 return;
             }
 
@@ -136,43 +137,50 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             try {
                 // Fetch historical performance for this employee
                 const performanceData = await getEmployeeDurations(employee.name);
-                if (!performanceData || performanceData.length === 0) {
-                    setServicesWithPerformanceData(new Set());
-                    return;
-                }
 
+                const newSources: Record<string, 'personal' | 'default'> = {};
                 let totalDuration = 0;
-                let allServicesFound = true;
-
-                const servicesWithData = new Set<string>();
 
                 for (const svcOption of selectedServices) {
                     const serviceName = svcOption.label;
+                    const serviceId = svcOption.value;
                     let serviceDuration = null;
+                    let source: 'personal' | 'default' | null = null;
 
-                    // Look across the last 4 months (current + 3 past)
-                    for (const performance of performanceData) {
-                        const breakdown = typeof performance.service_time_breakdown === 'string'
-                            ? JSON.parse(performance.service_time_breakdown)
-                            : performance.service_time_breakdown;
+                    // 1. Look for personal time across the last 4 months
+                    if (performanceData && performanceData.length > 0) {
+                        for (const performance of performanceData) {
+                            const breakdown = typeof performance.service_time_breakdown === 'string'
+                                ? JSON.parse(performance.service_time_breakdown)
+                                : performance.service_time_breakdown;
 
-                        const match = (breakdown || []).find((s: any) => s.service === serviceName);
-                        if (match) {
-                            serviceDuration = match.avg_duration_minutes;
-                            servicesWithData.add(serviceName);
-                            break;
+                            const match = (breakdown || []).find((s: any) => s.service === serviceName);
+                            if (match) {
+                                serviceDuration = match.avg_duration_minutes;
+                                source = 'personal';
+                                break;
+                            }
+                        }
+                    }
+
+                    // 2. If no personal time, check service default duration
+                    if (serviceDuration === null) {
+                        const serviceDef = availableServices.find(s => s.id === serviceId);
+                        if (serviceDef && serviceDef.duration) {
+                            serviceDuration = serviceDef.duration;
+                            source = 'default';
                         }
                     }
 
                     if (serviceDuration !== null) {
                         totalDuration += serviceDuration;
-                    } else {
-                        allServicesFound = false;
-                        // Don't break here if we want to check ALL services for color coding
+                        if (source) {
+                            newSources[serviceName] = source;
+                        }
                     }
                 }
 
-                setServicesWithPerformanceData(servicesWithData);
+                setServiceDataSources(newSources);
 
                 if (totalDuration > 0) {
                     const startDate = new Date(formData.start);
@@ -227,10 +235,11 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             employeeId: undefined,
             serviceId: undefined,
             deposit: undefined,
+            status: 'pending',
             ...prefilledData
         });
         setSelectedServices([]);
-        setServicesWithPerformanceData(new Set());
+        setServiceDataSources({});
         setErrorMessage(null);
         setEditingEvent(null);
         setIsModalOpen(true);
@@ -302,6 +311,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             employeeId: event.employeeId,
             serviceId: event.serviceId,
             deposit: event.deposit,
+            status: event.status || 'pending',
         });
 
         // Try to identify selected services from availableServices if title contains them
@@ -355,6 +365,22 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         router.push(`/appointments/new?${params.toString()}`);
     };
 
+    const handleConfirmAbsence = async () => {
+        if (!selectedEventForAction) return;
+
+        try {
+            await updateAppointmentSchedule(selectedEventForAction.id, {
+                status: 'canceled'
+            });
+            setIsActionModalOpen(false);
+            fetchData();
+            showSuccess('Turno marcado como ausencia (cancelado)');
+        } catch (error) {
+            console.error('Error canceling event', error);
+            alert('Error al cancelar el turno');
+        }
+    };
+
     const handleDeleteFromAction = async () => {
         if (!selectedEventForAction) return;
         setEventToDelete(selectedEventForAction.id);
@@ -405,7 +431,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                     // Skip the current event being edited
                     if (editingEvent && event.id === editingEvent.id) return false;
                     // Only check for the same employee and non-all-day events
-                    if (event.employeeId !== finalData.employeeId || event.isAllDay) return false;
+                    if (event.employeeId !== finalData.employeeId || event.isAllDay || event.status === 'canceled') return false;
 
                     const existStart = new Date(event.start).getTime();
                     const existEnd = new Date(event.end).getTime();
@@ -584,7 +610,11 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                             <div
                                 key={event.id}
                                 onClick={(e) => handleEventClick(e, event)}
-                                className={`text-xs p-1 rounded text-white truncate shadow-sm transition-opacity hover:opacity-80 cursor-pointer ${event.deposit ? 'bg-emerald-600' : 'bg-amber-500'}`}
+                                className={`text-xs p-1 rounded text-white truncate shadow-sm transition-opacity hover:opacity-80 cursor-pointer ${event.status === 'canceled' ? 'bg-red-600' :
+                                    event.status === 'unavailable' ? 'bg-black' :
+                                        (event.status === 'confirmed' || event.deposit) ? 'bg-emerald-600' :
+                                            'bg-amber-500' // pending
+                                    }`}
                                 title={`${event.title}${event.deposit ? ` (Seña: $${event.deposit})` : ' (Sin seña)'} - ${new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} a ${new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
                             >
                                 {mounted && !event.isAllDay && (
@@ -601,6 +631,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                             ${event.deposit}
                                         </span>
                                     )}
+                                </div>
+                                <div className="text-[9px] opacity-80 italic truncate mt-0.5 border-t border-white/20 pt-0.5">
+                                    {availableEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar'}
                                 </div>
                             </div>
                         ))}
@@ -671,8 +704,12 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        <div className={`px-6 py-4 flex-shrink-0 flex justify-between items-center ${formData.clientId ? 'bg-purple-600' : 'bg-pink-600'}`}>
-                            <h3 className="text-lg font-bold text-white">{editingEvent ? 'Editar Turno' : 'Nuevo Turno'}</h3>
+                        <div className={`px-6 py-4 flex-shrink-0 flex justify-between items-center ${formData.status === 'unavailable' ? 'bg-gray-800' :
+                            formData.clientId ? 'bg-purple-600' : 'bg-pink-600'
+                            }`}>
+                            <h3 className="text-lg font-bold text-white">
+                                {formData.status === 'unavailable' ? 'Bloqueo / No Disponible' : (editingEvent ? 'Editar Turno' : 'Nuevo Turno')}
+                            </h3>
                             <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white transition-colors">
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
@@ -729,71 +766,75 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Seña (Monto)</label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <span className="text-gray-500 sm:text-sm font-bold">$</span>
+                            {formData.status !== 'unavailable' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Seña (Monto)</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span className="text-gray-500 sm:text-sm font-bold">$</span>
+                                        </div>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 pl-7 border"
+                                            placeholder="Ingrese monto o dejar en blanco para 'NA'"
+                                            value={formData.deposit || ''}
+                                            onChange={(e) => setFormData({ ...formData, deposit: e.target.value === '' ? undefined : Number(e.target.value) })}
+                                        />
                                     </div>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 pl-7 border"
-                                        placeholder="Ingrese monto o dejar en blanco para 'NA'"
-                                        value={formData.deposit || ''}
-                                        onChange={(e) => setFormData({ ...formData, deposit: e.target.value === '' ? undefined : Number(e.target.value) })}
-                                    />
+                                    <p className="mt-1 text-[10px] text-gray-400">Si el campo queda vacío aparecerá como 'NA' y el turno será amarillo.</p>
                                 </div>
-                                <p className="mt-1 text-[10px] text-gray-400">Si el campo queda vacío aparecerá como 'NA' y el turno será amarillo.</p>
-                            </div>
+                            )}
 
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
-                                    <CreatableSelect
-                                        isClearable
-                                        options={clientOptions}
-                                        value={formData.clientId
-                                            ? { value: formData.clientId, label: formData.clientName }
-                                            : formData.clientName
-                                                ? { value: '', label: formData.clientName }
-                                                : null
-                                        }
-                                        onChange={(selected: any) => {
-                                            if (selected) {
-                                                setFormData({
-                                                    ...formData,
-                                                    clientId: selected.value || undefined,
-                                                    clientName: selected.label
-                                                });
-                                            } else {
+                                {formData.status !== 'unavailable' && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+                                        <CreatableSelect
+                                            isClearable
+                                            options={clientOptions}
+                                            value={formData.clientId
+                                                ? { value: formData.clientId, label: formData.clientName }
+                                                : formData.clientName
+                                                    ? { value: '', label: formData.clientName }
+                                                    : null
+                                            }
+                                            onChange={(selected: any) => {
+                                                if (selected) {
+                                                    setFormData({
+                                                        ...formData,
+                                                        clientId: selected.value || undefined,
+                                                        clientName: selected.label
+                                                    });
+                                                } else {
+                                                    setFormData({
+                                                        ...formData,
+                                                        clientId: undefined,
+                                                        clientName: ''
+                                                    });
+                                                }
+                                            }}
+                                            onCreateOption={(inputValue) => {
                                                 setFormData({
                                                     ...formData,
                                                     clientId: undefined,
-                                                    clientName: ''
+                                                    clientName: inputValue
                                                 });
-                                            }
-                                        }}
-                                        onCreateOption={(inputValue) => {
-                                            setFormData({
-                                                ...formData,
-                                                clientId: undefined,
-                                                clientName: inputValue
-                                            });
-                                        }}
-                                        placeholder="Buscar o escribir nombre..."
-                                        formatCreateLabel={(inputValue) => `Nuevo cliente: "${inputValue}"`}
-                                        className="text-sm"
-                                        theme={(theme) => ({
-                                            ...theme,
-                                            colors: {
-                                                ...theme.colors,
-                                                primary: '#db2777',
-                                            }
-                                        })}
-                                    />
-                                </div>
-                                <div>
+                                            }}
+                                            placeholder="Buscar o escribir nombre..."
+                                            formatCreateLabel={(inputValue) => `Nuevo cliente: "${inputValue}"`}
+                                            className="text-sm"
+                                            theme={(theme) => ({
+                                                ...theme,
+                                                colors: {
+                                                    ...theme.colors,
+                                                    primary: '#db2777',
+                                                }
+                                            })}
+                                        />
+                                    </div>
+                                )}
+                                <div className={formData.status === 'unavailable' ? "col-span-2" : ""}>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Profesional</label>
                                     <select
                                         className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 border"
@@ -808,54 +849,89 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Servicio(s)</label>
-                                <Select
-                                    isMulti
-                                    options={serviceOptions}
-                                    value={selectedServices}
-                                    onChange={(selected) => setSelectedServices(Array.from(selected || []))}
-                                    placeholder="Seleccionar servicios..."
-                                    className="text-sm"
-                                    styles={{
-                                        multiValue: (base, state) => {
-                                            const hasData = servicesWithPerformanceData.has(state.data.label);
-                                            return {
-                                                ...base,
-                                                backgroundColor: hasData ? '#ecfdf5' : base.backgroundColor, // emerald-50
-                                                border: hasData ? '1px solid #10b981' : base.border, // emerald-500
-                                                borderRadius: '6px',
-                                            };
-                                        },
-                                        multiValueLabel: (base, state) => {
-                                            const hasData = servicesWithPerformanceData.has(state.data.label);
-                                            return {
-                                                ...base,
-                                                color: hasData ? '#065f46' : base.color, // emerald-800
-                                                fontWeight: hasData ? '600' : base.fontWeight,
-                                            };
-                                        },
-                                        multiValueRemove: (base, state) => {
-                                            const hasData = servicesWithPerformanceData.has(state.data.label);
-                                            return {
-                                                ...base,
-                                                color: hasData ? '#065f46' : base.color,
-                                                ':hover': {
-                                                    backgroundColor: hasData ? '#10b981' : base[':hover']?.backgroundColor,
-                                                    color: 'white',
-                                                },
-                                            };
-                                        },
-                                    }}
-                                    theme={(theme) => ({
-                                        ...theme,
-                                        colors: {
-                                            ...theme.colors,
-                                            primary: '#db2777', // pink-600
-                                        }
-                                    })}
-                                />
-                            </div>
+                            {formData.status !== 'unavailable' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Servicio(s)</label>
+                                    <Select
+                                        isMulti
+                                        options={serviceOptions}
+                                        value={selectedServices}
+                                        onChange={(selected) => setSelectedServices(Array.from(selected || []))}
+                                        placeholder="Seleccionar servicios..."
+                                        className="text-sm"
+                                        styles={{
+                                            multiValue: (base, state) => {
+                                                const source = serviceDataSources[state.data.label];
+                                                let bgColor = base.backgroundColor;
+                                                let borderColor = base.border;
+
+                                                if (source === 'personal') {
+                                                    bgColor = '#ecfdf5'; // emerald-50
+                                                    borderColor = '1px solid #10b981'; // emerald-500
+                                                } else if (source === 'default') {
+                                                    bgColor = '#fefce8'; // yellow-50
+                                                    borderColor = '1px solid #eab308'; // yellow-500
+                                                }
+
+                                                return {
+                                                    ...base,
+                                                    backgroundColor: bgColor,
+                                                    border: borderColor,
+                                                    borderRadius: '6px',
+                                                };
+                                            },
+                                            multiValueLabel: (base, state) => {
+                                                const source = serviceDataSources[state.data.label];
+                                                let color = base.color;
+                                                let fontWeight = base.fontWeight;
+
+                                                if (source === 'personal') {
+                                                    color = '#065f46'; // emerald-800
+                                                    fontWeight = '600';
+                                                } else if (source === 'default') {
+                                                    color = '#854d0e'; // yellow-800
+                                                    fontWeight = '600';
+                                                }
+
+                                                return {
+                                                    ...base,
+                                                    color,
+                                                    fontWeight,
+                                                };
+                                            },
+                                            multiValueRemove: (base, state) => {
+                                                const source = serviceDataSources[state.data.label];
+                                                let color = base.color;
+                                                let hoverBg = base[':hover']?.backgroundColor;
+
+                                                if (source === 'personal') {
+                                                    color = '#065f46';
+                                                    hoverBg = '#10b981';
+                                                } else if (source === 'default') {
+                                                    color = '#854d0e';
+                                                    hoverBg = '#eab308';
+                                                }
+
+                                                return {
+                                                    ...base,
+                                                    color: color,
+                                                    ':hover': {
+                                                        backgroundColor: hoverBg,
+                                                        color: 'white',
+                                                    },
+                                                };
+                                            },
+                                        }}
+                                        theme={(theme) => ({
+                                            ...theme,
+                                            colors: {
+                                                ...theme.colors,
+                                                primary: '#db2777', // pink-600
+                                            }
+                                        })}
+                                    />
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -911,20 +987,41 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                         Eliminar
                                     </button>
                                 ) : <div></div>}
-                                <div className="space-x-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsModalOpen(false)}
-                                        className="text-gray-700 hover:text-gray-900 text-sm font-medium px-4 py-2 hover:bg-gray-100 rounded transition-colors"
-                                    >
-                                        Cancelar
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="bg-pink-600 text-white px-5 py-2 rounded-lg hover:bg-pink-700 transition-colors shadow-sm text-sm font-medium"
-                                    >
-                                        Guardar Turno
-                                    </button>
+                                <div className="flex items-center space-x-4">
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="checkbox"
+                                            id="unavailable-checkbox-footer"
+                                            className="w-4 h-4 text-pink-600 bg-white border-gray-300 rounded focus:ring-pink-500 cursor-pointer"
+                                            checked={formData.status === 'unavailable'}
+                                            onChange={(e) => {
+                                                const checked = e.target.checked;
+                                                setFormData({
+                                                    ...formData,
+                                                    status: checked ? 'unavailable' : (formData.deposit ? 'confirmed' : 'pending'),
+                                                    title: checked ? (formData.employeeId ? `BLOQUEO - ${availableEmployees.find(emp => emp.id === formData.employeeId)?.name}` : 'BLOQUEO') : (formData.title.startsWith('BLOQUEO') ? '' : formData.title)
+                                                });
+                                            }}
+                                        />
+                                        <label htmlFor="unavailable-checkbox-footer" className="text-xs font-semibold text-gray-500 hover:text-gray-700 cursor-pointer transition-colors">
+                                            Bloquear horario
+                                        </label>
+                                    </div>
+                                    <div className="space-x-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsModalOpen(false)}
+                                            className="text-gray-700 hover:text-gray-900 text-sm font-medium px-4 py-2 hover:bg-gray-100 rounded transition-colors"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="bg-pink-600 text-white px-5 py-2 rounded-lg hover:bg-pink-700 transition-colors shadow-sm text-sm font-medium"
+                                        >
+                                            Guardar Turno
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </form>
@@ -939,13 +1036,25 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                             <p className="text-sm text-gray-500 mb-6">{selectedEventForAction.title}</p>
 
                             <div className="space-y-3">
-                                <button
-                                    onClick={handleConfirmSelectedEvent}
-                                    className="w-full flex items-center justify-center space-x-2 bg-pink-600 text-white py-3 rounded-xl font-bold hover:bg-pink-700 transition-all shadow-md active:scale-95"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    <span>Confirmar Turno</span>
-                                </button>
+                                {selectedEventForAction.status !== 'canceled' && selectedEventForAction.status !== 'unavailable' && (
+                                    <>
+                                        <button
+                                            onClick={handleConfirmSelectedEvent}
+                                            className="w-full flex items-center justify-center space-x-2 bg-pink-600 text-white py-3 rounded-xl font-bold hover:bg-pink-700 transition-all shadow-md active:scale-95"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            <span>Confirmar Turno</span>
+                                        </button>
+
+                                        <button
+                                            onClick={handleConfirmAbsence}
+                                            className="w-full flex items-center justify-center space-x-2 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-all shadow-md active:scale-95"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            <span>Confirmar Ausencia</span>
+                                        </button>
+                                    </>
+                                )}
 
                                 <button
                                     onClick={handleEditSelectedEvent}
