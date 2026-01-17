@@ -606,7 +606,6 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                     onDrop={(e) => handleDrop(e, day)}
                     onDragOver={handleDragOver}
                     className={`h-32 border border-gray-200 p-2 cursor-pointer hover:bg-gray-100 transition-colors overflow-y-auto relative ${isToday ? 'bg-pink-50' : 'bg-white'}`}
-                    style={{ overflow: 'visible' }}
                     onMouseEnter={(e) => {
                         const target = e.currentTarget;
                         target.style.overflow = 'visible';
