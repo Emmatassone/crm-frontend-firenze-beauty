@@ -16,7 +16,8 @@ import {
     BsBoxArrowRight,
     BsChevronLeft,
     BsChevronRight,
-    BsPersonBadge
+    BsPersonBadge,
+    BsGear
 } from 'react-icons/bs';
 
 export default function SidebarNavigation() {
@@ -127,8 +128,11 @@ export default function SidebarNavigation() {
                 </div>
             </nav>
 
-            {/* Footer / Logout */}
-            <div className="p-4 border-t border-gray-200 bg-gray-50/50">
+            {/* Footer / Settings & Logout */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50/50 space-y-1">
+                {store.level === '6' && (
+                    <NavItem href="/settings" label="Configuración" icon={BsGear} />
+                )}
                 <button
                     onClick={handleLogout}
                     className={`flex items-center w-full px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors ${isCollapsed ? 'justify-center px-0' : ''}`}

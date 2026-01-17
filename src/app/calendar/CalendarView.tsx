@@ -13,6 +13,7 @@ import {
     getServices,
     getClientProfiles,
     getEmployeeDurations,
+    getSettingByKey,
     AppointmentSchedule,
     CreateAppointmentScheduleDto,
     ClientProfile,
@@ -58,6 +59,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [filterEmployeeId, setFilterEmployeeId] = useState<string>('all');
     const [isActionModalOpen, setIsActionModalOpen] = useState(false);
     const [selectedEventForAction, setSelectedEventForAction] = useState<AppointmentSchedule | null>(null);
+    const [visibleDays, setVisibleDays] = useState<number[]>([1, 2, 3, 4, 5, 6]); // Default Mon-Sat
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [eventToDelete, setEventToDelete] = useState<string | null>(null);
@@ -126,12 +128,18 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [eventsData, employeesData, servicesData, clientsData] = await Promise.all([
+            const [eventsData, employeesData, servicesData, clientsData, settingData] = await Promise.all([
                 getAppointmentSchedules(),
                 getEmployees(),
                 getServices(),
-                getClientProfiles()
+                getClientProfiles(),
+                getSettingByKey('calendar_days').catch(() => null)
             ]);
+
+            if (settingData && Array.isArray(settingData.value)) {
+                setVisibleDays(settingData.value);
+            }
+
             setEvents(eventsData || []);
             const activeEmployees = (employeesData || []).filter(e => e.status === 'active');
             setAvailableEmployees(activeEmployees);
@@ -599,18 +607,30 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
         // Calculate total rows to determine if a day is in the last row
-        const totalCells = firstDay + daysInMonth;
-        const totalRows = Math.ceil(totalCells / 7);
+        const visibleDayCount = visibleDays.length || 7;
+        const totalRows = Math.ceil(daysInMonth / visibleDayCount);
 
+        // Padding logic removed to support dynamic column counts based on settings
+        /*
         for (let i = 0; i < firstDay; i++) {
             days.push(<div key={`empty-${i}`} className="h-32 bg-gray-50 border border-gray-100"></div>);
         }
+        */
 
         // Maximum appointments to show before "+X more"
         const MAX_VISIBLE_APPOINTMENTS = 3;
 
         for (let day = 1; day <= daysInMonth; day++) {
             const date = new Date(year, month, day);
+            const dayOfWeek = date.getDay();
+
+            // Only skip rendering for the main grid if configured
+            // (Empty cells for padding might still be needed if logic changes, 
+            // but here we just filter the rendered days loop)
+            if (visibleDays.length > 0 && !visibleDays.includes(dayOfWeek)) {
+                continue;
+            }
+
             const dayEvents = events.filter(e => {
                 const eDate = new Date(e.start);
                 const isSameDay = eDate.getDate() === day && eDate.getMonth() === month && eDate.getFullYear() === year;
@@ -628,8 +648,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             const hiddenCount = dayEvents.length - MAX_VISIBLE_APPOINTMENTS;
 
             // Determine if this day is in the last two rows (for positioning the expanded panel)
-            const cellIndex = firstDay + day - 1;
-            const rowIndex = Math.floor(cellIndex / 7);
+            const rowIndex = Math.floor(days.length / visibleDayCount);
             const isBottomRow = rowIndex >= totalRows - 2;
 
             // Get work hours for this day
@@ -864,13 +883,20 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
 
             <div className="flex-1 overflow-auto p-6 pb-16">
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-visible">
-                    <div className="grid grid-cols-7 gap-px text-center text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">
-                        {DAYS.map(day => (
-                            <div key={day} className="py-2.5 uppercase tracking-wide">{day}</div>
-                        ))}
+                    <div
+                        className="grid gap-px text-center text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200"
+                        style={{ gridTemplateColumns: `repeat(${visibleDays.length || 7}, minmax(0, 1fr))` }}
+                    >
+                        {DAYS.map((day, index) => {
+                            if (visibleDays.length > 0 && !visibleDays.includes(index)) return null;
+                            return <div key={day} className="py-2.5 uppercase tracking-wide">{day}</div>
+                        })}
                     </div>
 
-                    <div className="grid grid-cols-7 gap-px bg-gray-200 border-b border-l border-r border-gray-200 overflow-visible">
+                    <div
+                        className="grid gap-px bg-gray-200 border-b border-l border-r border-gray-200 overflow-visible"
+                        style={{ gridTemplateColumns: `repeat(${visibleDays.length || 7}, minmax(0, 1fr))` }}
+                    >
                         {renderDays()}
                     </div>
                 </div>

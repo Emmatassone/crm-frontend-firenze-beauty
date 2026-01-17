@@ -277,3 +277,21 @@ export const deleteAppointmentSchedule = (id: string): Promise<void> => request<
 
 // --- Analytics API Functions ---
 export const getEmployeeDurations = (name: string): Promise<any[]> => request<any[]>(`/analytics/employees/durations/${encodeURIComponent(name)}`);
+
+// --- Settings Types ---
+export interface Setting {
+  id: string;
+  key: string;
+  value: any;
+  updatedAt: string;
+}
+
+export interface UpdateSettingDto {
+  key: string;
+  value: any;
+}
+
+// --- Settings API Functions ---
+export const getSettings = (): Promise<Setting[]> => request<Setting[]>('/settings');
+export const getSettingByKey = (key: string): Promise<Setting> => request<Setting>(`/settings/${key}`);
+export const updateSetting = (data: UpdateSettingDto): Promise<Setting> => request<Setting>('/settings', { method: 'POST', body: JSON.stringify(data) });
