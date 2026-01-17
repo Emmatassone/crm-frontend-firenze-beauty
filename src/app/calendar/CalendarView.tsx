@@ -608,14 +608,27 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
 
         // Calculate total rows to determine if a day is in the last row
         const visibleDayCount = visibleDays.length || 7;
-        const totalRows = Math.ceil(daysInMonth / visibleDayCount);
 
-        // Padding logic removed to support dynamic column counts based on settings
-        /*
-        for (let i = 0; i < firstDay; i++) {
+        // Add padding cells for proper alignment
+        // Count how many visible days come before the first day of the month
+        let paddingCount = 0;
+        if (visibleDays.length > 0) {
+            for (let i = 0; i < firstDay; i++) {
+                if (visibleDays.includes(i)) {
+                    paddingCount++;
+                }
+            }
+        } else {
+            paddingCount = firstDay;
+        }
+
+        for (let i = 0; i < paddingCount; i++) {
             days.push(<div key={`empty-${i}`} className="h-32 bg-gray-50 border border-gray-100"></div>);
         }
-        */
+
+        // Calculate total rows including padding
+        const totalCells = paddingCount + daysInMonth;
+        const totalRows = Math.ceil(totalCells / visibleDayCount);
 
         // Maximum appointments to show before "+X more"
         const MAX_VISIBLE_APPOINTMENTS = 3;
@@ -624,9 +637,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             const date = new Date(year, month, day);
             const dayOfWeek = date.getDay();
 
-            // Only skip rendering for the main grid if configured
-            // (Empty cells for padding might still be needed if logic changes, 
-            // but here we just filter the rendered days loop)
+            // Only render days that are in the visible days configuration
             if (visibleDays.length > 0 && !visibleDays.includes(dayOfWeek)) {
                 continue;
             }
