@@ -651,7 +651,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                     key={day}
                     onClick={(e) => {
                         // Only open new appointment modal if not clicking on an event or expand button
-                        if (!(e.target as HTMLElement).closest('[data-event-item]') && 
+                        if (!(e.target as HTMLElement).closest('[data-event-item]') &&
                             !(e.target as HTMLElement).closest('[data-expand-btn]')) {
                             setExpandedDay(null);
                             handleDayClick(day);
@@ -659,7 +659,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                     }}
                     onDrop={(e) => handleDrop(e, day)}
                     onDragOver={handleDragOver}
-                    className={`h-32 border border-gray-200 p-2 cursor-pointer hover:bg-gray-100 transition-colors relative ${isToday ? 'bg-pink-50' : 'bg-white'} ${isExpanded ? 'overflow-visible z-[100]' : 'overflow-hidden'}`}
+                    className={`h-32 border border-gray-200 p-2 cursor-pointer hover:bg-gray-100 transition-colors relative ${isToday ? 'bg-pink-50' : 'bg-white'} ${isExpanded ? 'overflow-visible z-[100]' : 'overflow-hidden hover:overflow-visible hover:z-[40]'}`}
                 >
                     <div className="flex justify-between items-start">
                         <div className="flex items-center">
@@ -674,9 +674,11 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                     </div>
                     <div className="mt-1 space-y-0.5">
                         {visibleEvents.map(event => {
+                            const clientName = event.clientName || availableClients.find(c => c.id === event.clientId)?.name || 'Sin cliente';
                             const employeeName = availableEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar';
                             const startTime = mounted && !event.isAllDay ? new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                            
+                            const endTime = mounted && !event.isAllDay ? new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
                             return (
                                 <div
                                     key={event.id}
@@ -685,7 +687,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                         e.stopPropagation();
                                         handleEventClick(e, event);
                                     }}
-                                    className={`text-xs p-1 rounded text-white shadow-sm transition-all duration-200 cursor-pointer hover:scale-[1.02] hover:shadow-md ${event.status === 'canceled' ? 'bg-red-600' :
+                                    className={`group text-xs p-1 rounded text-white shadow-sm transition-all duration-200 cursor-pointer hover:scale-[1.05] hover:shadow-xl hover:z-[50] relative ${event.status === 'canceled' ? 'bg-red-600' :
                                         event.status === 'unavailable' ? 'bg-black' :
                                             (event.status === 'confirmed' || event.deposit) ? 'bg-emerald-600' :
                                                 'bg-amber-500'
@@ -693,13 +695,28 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                 >
                                     <div className="flex items-center justify-between">
                                         {mounted && !event.isAllDay && (
-                                            <span className="font-mono text-[10px] font-semibold">
-                                                {startTime}
+                                            <span className="font-mono text-[9px] font-semibold">
+                                                {startTime}-{endTime}
                                             </span>
                                         )}
-                                        <span className="text-[10px] truncate ml-1 flex-1">
-                                            {employeeName}
+                                        <span className="text-[10px] truncate group-hover:whitespace-normal group-hover:overflow-visible ml-1 flex-1">
+                                            {clientName}
                                         </span>
+                                    </div>
+                                    <div className="hidden group-hover:block mt-1 pt-1 border-t border-white/20 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <div className="text-[8px] font-medium opacity-90 truncate">
+                                            Prof: {employeeName}
+                                        </div>
+                                        {event.title.includes(': ') && (
+                                            <div className="text-[8px] font-medium mt-0.5 italic opacity-80">
+                                                {event.title.split(': ')[1]}
+                                            </div>
+                                        )}
+                                        {event.deposit && (
+                                            <div className="text-[8px] font-bold mt-0.5">
+                                                Seña: ${event.deposit}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             );
@@ -720,11 +737,10 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
 
                     {/* Expanded appointments panel */}
                     {isExpanded && (
-                        <div 
+                        <div
                             data-expanded-panel="true"
-                            className={`absolute left-0 right-0 z-[200] bg-white border border-gray-300 rounded-lg shadow-2xl p-3 ${
-                                isBottomRow ? 'bottom-full mb-1' : 'top-full mt-1'
-                            }`}
+                            className={`absolute left-0 right-0 z-[200] bg-white border border-gray-300 rounded-lg shadow-2xl p-3 ${isBottomRow ? 'bottom-full mb-1' : 'top-full mt-1'
+                                }`}
                             style={{ minWidth: '280px', maxHeight: '300px' }}
                             onClick={(e) => e.stopPropagation()}
                         >
@@ -748,7 +764,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                     const clientName = event.clientName || availableClients.find(c => c.id === event.clientId)?.name || 'Sin cliente';
                                     const startTime = mounted && !event.isAllDay ? new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                                     const endTime = mounted && !event.isAllDay ? new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                                    
+
                                     return (
                                         <div
                                             key={event.id}
@@ -757,7 +773,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                                 setExpandedDay(null);
                                                 handleEventClick(e, event);
                                             }}
-                                            className={`p-2 rounded-lg text-white shadow-sm cursor-pointer hover:shadow-md transition-all ${event.status === 'canceled' ? 'bg-red-600' :
+                                            className={`group p-2 rounded-lg text-white shadow-sm cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all ${event.status === 'canceled' ? 'bg-red-600' :
                                                 event.status === 'unavailable' ? 'bg-black' :
                                                     (event.status === 'confirmed' || event.deposit) ? 'bg-emerald-600' :
                                                         'bg-amber-500'
@@ -766,7 +782,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                             <div className="flex items-center justify-between mb-1">
                                                 {mounted && !event.isAllDay && (
                                                     <span className="font-mono text-xs font-bold">
-                                                        {startTime} - {endTime}
+                                                        {startTime}-{endTime}
                                                     </span>
                                                 )}
                                                 {event.deposit && (
@@ -775,8 +791,22 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="text-xs font-medium truncate">{clientName}</div>
-                                            <div className="text-[10px] opacity-80 truncate">{employeeName}</div>
+                                            <div className="text-xs font-medium truncate group-hover:whitespace-normal group-hover:overflow-visible">{clientName}</div>
+                                            <div className="hidden group-hover:block mt-1.5 pt-1.5 border-t border-white/20 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                <div className="text-[10px] opacity-90 truncate">
+                                                    Prof: {employeeName}
+                                                </div>
+                                                {event.title.includes(': ') && (
+                                                    <div className="text-[9px] font-medium mt-1 italic opacity-80">
+                                                        {event.title.split(': ')[1]}
+                                                    </div>
+                                                )}
+                                                {event.deposit && (
+                                                    <div className="text-[10px] font-bold mt-1">
+                                                        Seña: ${event.deposit}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     );
                                 })}
