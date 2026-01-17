@@ -1068,9 +1068,24 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                         isMulti
                                         options={serviceOptions}
                                         value={selectedServices}
-                                        onChange={(selected) => setSelectedServices(Array.from(selected || []))}
+                                        onChange={(selected, actionMeta) => {
+                                            // Allow duplicate services by adding unique IDs
+                                            if (actionMeta.action === 'select-option' && actionMeta.option) {
+                                                const newService = {
+                                                    ...actionMeta.option,
+                                                    uniqueId: `${actionMeta.option.value}-${Date.now()}-${Math.random()}`
+                                                };
+                                                setSelectedServices([...selectedServices, newService]);
+                                            } else if (actionMeta.action === 'remove-value' && actionMeta.removedValue) {
+                                                setSelectedServices(selectedServices.filter(s => s.uniqueId !== actionMeta.removedValue.uniqueId));
+                                            } else if (actionMeta.action === 'clear') {
+                                                setSelectedServices([]);
+                                            }
+                                        }}
                                         placeholder="Seleccionar servicios..."
                                         className="text-sm"
+                                        getOptionLabel={(option) => option.label}
+                                        getOptionValue={(option) => option.uniqueId || option.value}
                                         styles={{
                                             multiValue: (base, state) => {
                                                 const source = serviceDataSources[state.data.label];
