@@ -427,27 +427,32 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 const newStart = new Date(finalData.start).getTime();
                 const newEnd = new Date(finalData.end).getTime();
 
-                const hasOverlap = events.some(event => {
-                    // Skip the current event being edited
-                    if (editingEvent && event.id === editingEvent.id) return false;
-                    // Only check for the same employee and non-all-day events
-                    if (event.employeeId !== finalData.employeeId || event.isAllDay || event.status === 'canceled') return false;
+                // Check if employee allows overlapping appointments
+                const employee = availableEmployees.find(e => e.id === finalData.employeeId);
+                const allowOverlap = employee?.allow_overlap || false;
 
-                    const existStart = new Date(event.start).getTime();
-                    const existEnd = new Date(event.end).getTime();
+                if (!allowOverlap) {
+                    const hasOverlap = events.some(event => {
+                        // Skip the current event being edited
+                        if (editingEvent && event.id === editingEvent.id) return false;
+                        // Only check for the same employee and non-all-day events
+                        if (event.employeeId !== finalData.employeeId || event.isAllDay || event.status === 'canceled') return false;
 
-                    // Standard overlap check: (StartA < EndB) and (EndA > StartB)
-                    return newStart < existEnd && newEnd > existStart;
-                });
+                        const existStart = new Date(event.start).getTime();
+                        const existEnd = new Date(event.end).getTime();
 
-                if (hasOverlap) {
-                    const employeeName = availableEmployees.find(e => e.id === finalData.employeeId)?.name || 'el profesional';
-                    setErrorMessage(`El horario seleccionado coincide con otro turno de ${employeeName}.`);
-                    return;
+                        // Standard overlap check: (StartA < EndB) and (EndA > StartB)
+                        return newStart < existEnd && newEnd > existStart;
+                    });
+
+                    if (hasOverlap) {
+                        const employeeName = employee?.name || 'el profesional';
+                        setErrorMessage(`El horario seleccionado coincide con otro turno de ${employeeName}.`);
+                        return;
+                    }
                 }
 
                 // Check if appointment is within employee working hours
-                const employee = availableEmployees.find(e => e.id === finalData.employeeId);
                 if (employee?.weekly_work_hours) {
                     const startDate = new Date(finalData.start);
                     const endDate = new Date(finalData.end);
@@ -573,6 +578,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 const isSameDay = eDate.getDate() === day && eDate.getMonth() === month && eDate.getFullYear() === year;
                 const matchesFilter = filterEmployeeId === 'all' || String(e.employeeId) === filterEmployeeId;
                 return isSameDay && matchesFilter;
+            }).sort((a, b) => {
+                // Sort by start time (ascending - earliest first)
+                return new Date(a.start).getTime() - new Date(b.start).getTime();
             });
 
             const isToday = new Date().toDateString() === date.toDateString();
@@ -598,6 +606,17 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                     onDrop={(e) => handleDrop(e, day)}
                     onDragOver={handleDragOver}
                     className={`h-32 border border-gray-200 p-2 cursor-pointer hover:bg-gray-100 transition-colors overflow-y-auto relative ${isToday ? 'bg-pink-50' : 'bg-white'}`}
+                    style={{ overflow: 'visible' }}
+                    onMouseEnter={(e) => {
+                        const target = e.currentTarget;
+                        target.style.overflow = 'visible';
+                        target.style.zIndex = '10';
+                    }}
+                    onMouseLeave={(e) => {
+                        const target = e.currentTarget;
+                        target.style.overflow = 'auto';
+                        target.style.zIndex = '';
+                    }}
                 >
                     <div className="flex justify-between items-start">
                         <div className="flex items-center">
@@ -606,37 +625,91 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                         </div>
                     </div>
                     <div className="mt-1 space-y-1">
-                        {dayEvents.map(event => (
-                            <div
-                                key={event.id}
-                                onClick={(e) => handleEventClick(e, event)}
-                                className={`text-xs p-1 rounded text-white truncate shadow-sm transition-opacity hover:opacity-80 cursor-pointer ${event.status === 'canceled' ? 'bg-red-600' :
-                                    event.status === 'unavailable' ? 'bg-black' :
-                                        (event.status === 'confirmed' || event.deposit) ? 'bg-emerald-600' :
-                                            'bg-amber-500' // pending
-                                    }`}
-                                title={`${event.title}${event.deposit ? ` (Seña: $${event.deposit})` : ' (Sin seña)'} - ${new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} a ${new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-                            >
-                                {mounted && !event.isAllDay && (
-                                    <div className="flex flex-col mb-0.5">
-                                        <span className="font-mono text-[9px] opacity-90 leading-tight">
-                                            {new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {dayEvents.map(event => {
+                            const employeeName = availableEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar';
+                            const clientName = event.clientName || availableClients.find(c => c.id === event.clientId)?.name || 'Sin cliente';
+                            const startTime = mounted && !event.isAllDay ? new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                            const endTime = mounted && !event.isAllDay ? new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                            
+                            return (
+                                <div
+                                    key={event.id}
+                                    onClick={(e) => handleEventClick(e, event)}
+                                    className={`group relative text-xs p-1 rounded text-white shadow-sm transition-all duration-200 cursor-pointer hover:scale-105 hover:shadow-lg hover:z-10 ${event.status === 'canceled' ? 'bg-red-600' :
+                                        event.status === 'unavailable' ? 'bg-black' :
+                                            (event.status === 'confirmed' || event.deposit) ? 'bg-emerald-600' :
+                                                'bg-amber-500' // pending
+                                        }`}
+                                >
+                                    {/* Compact view - Time and Employee */}
+                                    <div className="flex items-center justify-between">
+                                        {mounted && !event.isAllDay && (
+                                            <span className="font-mono text-[10px] font-semibold">
+                                                {startTime}
+                                            </span>
+                                        )}
+                                        <span className="text-[10px] truncate ml-1 flex-1">
+                                            {employeeName}
                                         </span>
                                     </div>
-                                )}
-                                <div className="font-medium truncate flex items-center justify-between">
-                                    <span>{event.title}</span>
-                                    {event.deposit && (
-                                        <span className="text-[10px] bg-white/20 px-1 rounded ml-1 font-bold">
-                                            ${event.deposit}
-                                        </span>
-                                    )}
+
+                                    {/* Hover tooltip - Full details */}
+                                    <div className="absolute left-0 top-full mt-1 z-[100] hidden group-hover:block w-64 bg-gray-900 text-white text-xs rounded-lg shadow-2xl p-3 border border-gray-700 pointer-events-none">
+                                        <div className="space-y-1.5">
+                                            <div className="font-bold text-sm border-b border-gray-700 pb-1.5 mb-1.5">
+                                                {event.title}
+                                            </div>
+                                            <div className="flex items-start">
+                                                <span className="text-gray-400 min-w-[60px]">Cliente:</span>
+                                                <span className="font-medium">{clientName}</span>
+                                            </div>
+                                            <div className="flex items-start">
+                                                <span className="text-gray-400 min-w-[60px]">Profesional:</span>
+                                                <span className="font-medium">{employeeName}</span>
+                                            </div>
+                                            {mounted && !event.isAllDay && (
+                                                <div className="flex items-start">
+                                                    <span className="text-gray-400 min-w-[60px]">Horario:</span>
+                                                    <span className="font-medium font-mono">{startTime} - {endTime}</span>
+                                                </div>
+                                            )}
+                                            {event.deposit && (
+                                                <div className="flex items-start">
+                                                    <span className="text-gray-400 min-w-[60px]">Seña:</span>
+                                                    <span className="font-bold text-emerald-400">${event.deposit}</span>
+                                                </div>
+                                            )}
+                                            {!event.deposit && (
+                                                <div className="flex items-start">
+                                                    <span className="text-gray-400 min-w-[60px]">Seña:</span>
+                                                    <span className="text-red-400">Sin seña</span>
+                                                </div>
+                                            )}
+                                            <div className="flex items-start">
+                                                <span className="text-gray-400 min-w-[60px]">Estado:</span>
+                                                <span className={`font-medium ${
+                                                    event.status === 'confirmed' ? 'text-emerald-400' :
+                                                    event.status === 'canceled' ? 'text-red-400' :
+                                                    event.status === 'unavailable' ? 'text-gray-400' :
+                                                    'text-amber-400'
+                                                }`}>
+                                                    {event.status === 'confirmed' ? 'Confirmada' :
+                                                     event.status === 'canceled' ? 'Cancelada' :
+                                                     event.status === 'unavailable' ? 'No disponible' :
+                                                     'Pendiente'}
+                                                </span>
+                                            </div>
+                                            {event.notes && (
+                                                <div className="flex items-start pt-1 border-t border-gray-700">
+                                                    <span className="text-gray-400 min-w-[60px]">Notas:</span>
+                                                    <span className="text-gray-300 italic text-[11px]">{event.notes}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="text-[9px] opacity-80 italic truncate mt-0.5 border-t border-white/20 pt-0.5">
-                                    {availableEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar'}
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             );

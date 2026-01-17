@@ -174,6 +174,7 @@ export interface Employee {
   monthlySalary?: number;
   weeklyWorkingHours?: number;
   weekly_work_hours?: Record<string, { 'check-in': string; 'check-out': string }>;
+  allow_overlap?: boolean;
   createdAt: string;
   updatedAt: string;
 }
