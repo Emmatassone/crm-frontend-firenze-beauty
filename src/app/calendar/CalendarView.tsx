@@ -62,11 +62,42 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [eventToDelete, setEventToDelete] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
+    const [expandedDay, setExpandedDay] = useState<number | null>(null);
     const router = useRouter();
 
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    // Close expanded day panel when clicking outside or pressing Escape
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (expandedDay !== null) {
+                const target = e.target as HTMLElement;
+                if (!target.closest('[data-expanded-panel]') && !target.closest('[data-expand-btn]')) {
+                    setExpandedDay(null);
+                }
+            }
+        };
+
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && expandedDay !== null) {
+                setExpandedDay(null);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [expandedDay]);
+
+    // Close expanded day when month changes
+    useEffect(() => {
+        setExpandedDay(null);
+    }, [currentDate]);
 
     // Form state
     const [formData, setFormData] = useState<CreateAppointmentScheduleDto>({
@@ -567,9 +598,16 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
 
         const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+        // Calculate total rows to determine if a day is in the last row
+        const totalCells = firstDay + daysInMonth;
+        const totalRows = Math.ceil(totalCells / 7);
+
         for (let i = 0; i < firstDay; i++) {
             days.push(<div key={`empty-${i}`} className="h-32 bg-gray-50 border border-gray-100"></div>);
         }
+
+        // Maximum appointments to show before "+X more"
+        const MAX_VISIBLE_APPOINTMENTS = 3;
 
         for (let day = 1; day <= daysInMonth; day++) {
             const date = new Date(year, month, day);
@@ -584,6 +622,15 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             });
 
             const isToday = new Date().toDateString() === date.toDateString();
+            const isExpanded = expandedDay === day;
+            const hasMoreAppointments = dayEvents.length > MAX_VISIBLE_APPOINTMENTS;
+            const visibleEvents = isExpanded ? dayEvents : dayEvents.slice(0, MAX_VISIBLE_APPOINTMENTS);
+            const hiddenCount = dayEvents.length - MAX_VISIBLE_APPOINTMENTS;
+
+            // Determine if this day is in the last two rows (for positioning the expanded panel)
+            const cellIndex = firstDay + day - 1;
+            const rowIndex = Math.floor(cellIndex / 7);
+            const isBottomRow = rowIndex >= totalRows - 2;
 
             // Get work hours for this day
             let workHoursDisplay = null;
@@ -602,45 +649,48 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             days.push(
                 <div
                     key={day}
-                    onClick={() => handleDayClick(day)}
+                    onClick={(e) => {
+                        // Only open new appointment modal if not clicking on an event or expand button
+                        if (!(e.target as HTMLElement).closest('[data-event-item]') && 
+                            !(e.target as HTMLElement).closest('[data-expand-btn]')) {
+                            setExpandedDay(null);
+                            handleDayClick(day);
+                        }
+                    }}
                     onDrop={(e) => handleDrop(e, day)}
                     onDragOver={handleDragOver}
-                    className={`h-32 border border-gray-200 p-2 cursor-pointer hover:bg-gray-100 transition-colors overflow-y-auto relative ${isToday ? 'bg-pink-50' : 'bg-white'}`}
-                    onMouseEnter={(e) => {
-                        const target = e.currentTarget;
-                        target.style.overflow = 'visible';
-                        target.style.zIndex = '10';
-                    }}
-                    onMouseLeave={(e) => {
-                        const target = e.currentTarget;
-                        target.style.overflow = 'auto';
-                        target.style.zIndex = '';
-                    }}
+                    className={`h-32 border border-gray-200 p-2 cursor-pointer hover:bg-gray-100 transition-colors relative ${isToday ? 'bg-pink-50' : 'bg-white'} ${isExpanded ? 'overflow-visible z-[100]' : 'overflow-hidden'}`}
                 >
                     <div className="flex justify-between items-start">
                         <div className="flex items-center">
                             <span className={`text-sm font-semibold ${isToday ? 'text-pink-600' : 'text-gray-700'}`}>{day}</span>
                             {workHoursDisplay}
                         </div>
+                        {dayEvents.length > 0 && (
+                            <span className="text-[9px] font-medium text-gray-400 bg-gray-100 px-1.5 rounded">
+                                {dayEvents.length}
+                            </span>
+                        )}
                     </div>
-                    <div className="mt-1 space-y-1">
-                        {dayEvents.map(event => {
+                    <div className="mt-1 space-y-0.5">
+                        {visibleEvents.map(event => {
                             const employeeName = availableEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar';
-                            const clientName = event.clientName || availableClients.find(c => c.id === event.clientId)?.name || 'Sin cliente';
                             const startTime = mounted && !event.isAllDay ? new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                            const endTime = mounted && !event.isAllDay ? new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                             
                             return (
                                 <div
                                     key={event.id}
-                                    onClick={(e) => handleEventClick(e, event)}
-                                    className={`group relative text-xs p-1 rounded text-white shadow-sm transition-all duration-200 cursor-pointer hover:scale-105 hover:shadow-lg hover:z-10 ${event.status === 'canceled' ? 'bg-red-600' :
+                                    data-event-item="true"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEventClick(e, event);
+                                    }}
+                                    className={`text-xs p-1 rounded text-white shadow-sm transition-all duration-200 cursor-pointer hover:scale-[1.02] hover:shadow-md ${event.status === 'canceled' ? 'bg-red-600' :
                                         event.status === 'unavailable' ? 'bg-black' :
                                             (event.status === 'confirmed' || event.deposit) ? 'bg-emerald-600' :
-                                                'bg-amber-500' // pending
+                                                'bg-amber-500'
                                         }`}
                                 >
-                                    {/* Compact view - Time and Employee */}
                                     <div className="flex items-center justify-between">
                                         {mounted && !event.isAllDay && (
                                             <span className="font-mono text-[10px] font-semibold">
@@ -651,65 +701,88 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                             {employeeName}
                                         </span>
                                     </div>
-
-                                    {/* Hover tooltip - Full details */}
-                                    <div className="absolute left-0 top-full mt-1 z-[100] hidden group-hover:block w-64 bg-gray-900 text-white text-xs rounded-lg shadow-2xl p-3 border border-gray-700 pointer-events-none">
-                                        <div className="space-y-1.5">
-                                            <div className="font-bold text-sm border-b border-gray-700 pb-1.5 mb-1.5">
-                                                {event.title}
-                                            </div>
-                                            <div className="flex items-start">
-                                                <span className="text-gray-400 min-w-[60px]">Cliente:</span>
-                                                <span className="font-medium">{clientName}</span>
-                                            </div>
-                                            <div className="flex items-start">
-                                                <span className="text-gray-400 min-w-[60px]">Profesional:</span>
-                                                <span className="font-medium">{employeeName}</span>
-                                            </div>
-                                            {mounted && !event.isAllDay && (
-                                                <div className="flex items-start">
-                                                    <span className="text-gray-400 min-w-[60px]">Horario:</span>
-                                                    <span className="font-medium font-mono">{startTime} - {endTime}</span>
-                                                </div>
-                                            )}
-                                            {event.deposit && (
-                                                <div className="flex items-start">
-                                                    <span className="text-gray-400 min-w-[60px]">Seña:</span>
-                                                    <span className="font-bold text-emerald-400">${event.deposit}</span>
-                                                </div>
-                                            )}
-                                            {!event.deposit && (
-                                                <div className="flex items-start">
-                                                    <span className="text-gray-400 min-w-[60px]">Seña:</span>
-                                                    <span className="text-red-400">Sin seña</span>
-                                                </div>
-                                            )}
-                                            <div className="flex items-start">
-                                                <span className="text-gray-400 min-w-[60px]">Estado:</span>
-                                                <span className={`font-medium ${
-                                                    event.status === 'confirmed' ? 'text-emerald-400' :
-                                                    event.status === 'canceled' ? 'text-red-400' :
-                                                    event.status === 'unavailable' ? 'text-gray-400' :
-                                                    'text-amber-400'
-                                                }`}>
-                                                    {event.status === 'confirmed' ? 'Confirmada' :
-                                                     event.status === 'canceled' ? 'Cancelada' :
-                                                     event.status === 'unavailable' ? 'No disponible' :
-                                                     'Pendiente'}
-                                                </span>
-                                            </div>
-                                            {event.notes && (
-                                                <div className="flex items-start pt-1 border-t border-gray-700">
-                                                    <span className="text-gray-400 min-w-[60px]">Notas:</span>
-                                                    <span className="text-gray-300 italic text-[11px]">{event.notes}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
                                 </div>
                             );
                         })}
+                        {hasMoreAppointments && !isExpanded && (
+                            <button
+                                data-expand-btn="true"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedDay(day);
+                                }}
+                                className="w-full text-[10px] font-medium text-pink-600 hover:text-pink-700 hover:bg-pink-50 py-0.5 rounded transition-colors"
+                            >
+                                +{hiddenCount} más
+                            </button>
+                        )}
                     </div>
+
+                    {/* Expanded appointments panel */}
+                    {isExpanded && (
+                        <div 
+                            data-expanded-panel="true"
+                            className={`absolute left-0 right-0 z-[200] bg-white border border-gray-300 rounded-lg shadow-2xl p-3 ${
+                                isBottomRow ? 'bottom-full mb-1' : 'top-full mt-1'
+                            }`}
+                            style={{ minWidth: '280px', maxHeight: '300px' }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
+                                <span className="font-bold text-gray-800 text-sm">
+                                    {day} {MONTHS[currentDate.getMonth()]} - {dayEvents.length} citas
+                                </span>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedDay(null);
+                                    }}
+                                    className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded transition-colors"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                            <div className="space-y-1.5 overflow-y-auto" style={{ maxHeight: '240px' }}>
+                                {dayEvents.map(event => {
+                                    const employeeName = availableEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar';
+                                    const clientName = event.clientName || availableClients.find(c => c.id === event.clientId)?.name || 'Sin cliente';
+                                    const startTime = mounted && !event.isAllDay ? new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                                    const endTime = mounted && !event.isAllDay ? new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                                    
+                                    return (
+                                        <div
+                                            key={event.id}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setExpandedDay(null);
+                                                handleEventClick(e, event);
+                                            }}
+                                            className={`p-2 rounded-lg text-white shadow-sm cursor-pointer hover:shadow-md transition-all ${event.status === 'canceled' ? 'bg-red-600' :
+                                                event.status === 'unavailable' ? 'bg-black' :
+                                                    (event.status === 'confirmed' || event.deposit) ? 'bg-emerald-600' :
+                                                        'bg-amber-500'
+                                                }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-1">
+                                                {mounted && !event.isAllDay && (
+                                                    <span className="font-mono text-xs font-bold">
+                                                        {startTime} - {endTime}
+                                                    </span>
+                                                )}
+                                                {event.deposit && (
+                                                    <span className="text-[10px] bg-white/20 px-1.5 rounded font-bold">
+                                                        ${event.deposit}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="text-xs font-medium truncate">{clientName}</div>
+                                            <div className="text-[10px] opacity-80 truncate">{employeeName}</div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         }
@@ -759,15 +832,15 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-6">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="flex-1 overflow-auto p-6 pb-16">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-visible">
                     <div className="grid grid-cols-7 gap-px text-center text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">
                         {DAYS.map(day => (
                             <div key={day} className="py-2.5 uppercase tracking-wide">{day}</div>
                         ))}
                     </div>
 
-                    <div className="grid grid-cols-7 gap-px bg-gray-200 border-b border-l border-r border-gray-200">
+                    <div className="grid grid-cols-7 gap-px bg-gray-200 border-b border-l border-r border-gray-200 overflow-visible">
                         {renderDays()}
                     </div>
                 </div>
