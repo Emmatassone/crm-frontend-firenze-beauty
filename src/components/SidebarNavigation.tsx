@@ -64,13 +64,13 @@ export default function SidebarNavigation() {
 
     return (
         <div
-            className={`flex flex-col bg-white border-r border-gray-200 h-screen transition-all duration-300 ease-in-out relative flex-shrink-0 z-40 ${isCollapsed ? 'w-20' : 'w-64'}`}
+            className={`flex flex-col bg-white border-r border-gray-200 h-full transition-all duration-300 ease-in-out relative flex-shrink-0 z-40 ${isCollapsed ? 'w-20' : 'w-64'}`}
             style={{ minHeight: '100vh' }}
         >
-            {/* Collapse Toggle */}
+            {/* Collapse Toggle - Hidden on mobile */}
             <button
                 onClick={() => setIsCollapsed(!isCollapsed)}
-                className="absolute -right-3 top-12 bg-white border border-gray-200 rounded-full p-1 shadow-md z-50 hover:text-pink-600 transition-colors"
+                className="hidden lg:block absolute -right-3 top-12 bg-white border border-gray-200 rounded-full p-1 shadow-md z-50 hover:text-pink-600 transition-colors"
                 aria-label={isCollapsed ? "Expandir" : "Colapsar"}
             >
                 {isCollapsed ? <BsChevronRight size={14} /> : <BsChevronLeft size={14} />}

@@ -65,10 +65,19 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [eventToDelete, setEventToDelete] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
     const [expandedDay, setExpandedDay] = useState<number | null>(null);
+    const [isWeekView, setIsWeekView] = useState(false); // Week view for mobile
+    const [expandedEventId, setExpandedEventId] = useState<string | null>(null); // For tap-to-expand on mobile
     const router = useRouter();
 
     useEffect(() => {
         setMounted(true);
+        // Auto-enable week view on mobile
+        const checkMobile = () => {
+            setIsWeekView(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
     // Close expanded day panel when clicking outside or pressing Escape
@@ -246,6 +255,17 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         return new Date(year, month, 1).getDay();
     };
 
+    // Get start and end of current week
+    const getWeekBounds = (date: Date) => {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday start
+        const monday = new Date(d.setDate(diff));
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        return { start: monday, end: sunday };
+    };
+
     const handlePrevMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
     };
@@ -253,6 +273,19 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const handleNextMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
     };
+
+    const handlePrevWeek = () => {
+        const newDate = new Date(currentDate);
+        newDate.setDate(newDate.getDate() - 7);
+        setCurrentDate(newDate);
+    };
+
+    const handleNextWeek = () => {
+        const newDate = new Date(currentDate);
+        newDate.setDate(newDate.getDate() + 7);
+        setCurrentDate(newDate);
+    };
+
 
     const openModal = (
         date: Date,
@@ -597,271 +630,343 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         const month = currentDate.getMonth();
         const daysInMonth = getDaysInMonth(year, month);
         const firstDay = getFirstDayOfMonth(year, month);
-        const days = [];
+        const days: React.ReactNode[] = [];
 
         // Get selected employee for work hours display
         const selectedEmployee = filterEmployeeId !== 'all'
             ? availableEmployees.find(e => e.id === filterEmployeeId)
             : null;
 
-        const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const daysOfWeekNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
         // Calculate total rows to determine if a day is in the last row
         const visibleDayCount = visibleDays.length || 7;
 
-        // Add padding cells for proper alignment
-        // Count how many visible days come before the first day of the month
-        let paddingCount = 0;
-        if (visibleDays.length > 0) {
-            for (let i = 0; i < firstDay; i++) {
-                if (visibleDays.includes(i)) {
-                    paddingCount++;
+        if (!isWeekView) {
+            // MONTH VIEW
+            // Add padding cells for proper alignment
+            let paddingCount = 0;
+            if (visibleDays.length > 0) {
+                for (let i = 0; i < firstDay; i++) {
+                    if (visibleDays.includes(i)) {
+                        paddingCount++;
+                    }
                 }
+            } else {
+                paddingCount = firstDay;
+            }
+
+            for (let i = 0; i < paddingCount; i++) {
+                days.push(<div key={`empty-${i}`} className="h-32 bg-gray-50 border border-gray-100"></div>);
+            }
+
+            // Calculate total rows including padding
+            const totalCells = paddingCount + daysInMonth;
+            const totalRows = Math.ceil(totalCells / visibleDayCount);
+
+            // Maximum appointments to show before "+X more"
+            const MAX_VISIBLE_APPOINTMENTS = 3;
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month, day);
+                const dayOfWeek = date.getDay();
+
+                // Only render days that are in the visible days configuration
+                if (visibleDays.length > 0 && !visibleDays.includes(dayOfWeek)) {
+                    continue;
+                }
+
+                const dayEvents = events.filter(e => {
+                    const eDate = new Date(e.start);
+                    const isSameDay = eDate.getDate() === day && eDate.getMonth() === month && eDate.getFullYear() === year;
+                    const matchesFilter = filterEmployeeId === 'all' || String(e.employeeId) === filterEmployeeId;
+                    return isSameDay && matchesFilter;
+                }).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+
+                renderDayCell(days as React.ReactNode[], day, date, dayEvents, isToday(date), totalRows, visibleDayCount, selectedEmployee || null, daysOfWeekNames, MAX_VISIBLE_APPOINTMENTS);
             }
         } else {
-            paddingCount = firstDay;
-        }
+            // WEEK VIEW
+            const { start: weekStart } = getWeekBounds(currentDate);
 
-        for (let i = 0; i < paddingCount; i++) {
-            days.push(<div key={`empty-${i}`} className="h-32 bg-gray-50 border border-gray-100"></div>);
-        }
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(weekStart);
+                date.setDate(weekStart.getDate() + i);
+                const dayOfWeek = date.getDay();
 
-        // Calculate total rows including padding
-        const totalCells = paddingCount + daysInMonth;
-        const totalRows = Math.ceil(totalCells / visibleDayCount);
-
-        // Maximum appointments to show before "+X more"
-        const MAX_VISIBLE_APPOINTMENTS = 3;
-
-        for (let day = 1; day <= daysInMonth; day++) {
-            const date = new Date(year, month, day);
-            const dayOfWeek = date.getDay();
-
-            // Only render days that are in the visible days configuration
-            if (visibleDays.length > 0 && !visibleDays.includes(dayOfWeek)) {
-                continue;
-            }
-
-            const dayEvents = events.filter(e => {
-                const eDate = new Date(e.start);
-                const isSameDay = eDate.getDate() === day && eDate.getMonth() === month && eDate.getFullYear() === year;
-                const matchesFilter = filterEmployeeId === 'all' || String(e.employeeId) === filterEmployeeId;
-                return isSameDay && matchesFilter;
-            }).sort((a, b) => {
-                // Sort by start time (ascending - earliest first)
-                return new Date(a.start).getTime() - new Date(b.start).getTime();
-            });
-
-            const isToday = new Date().toDateString() === date.toDateString();
-            const isExpanded = expandedDay === day;
-            const hasMoreAppointments = dayEvents.length > MAX_VISIBLE_APPOINTMENTS;
-            const visibleEvents = isExpanded ? dayEvents : dayEvents.slice(0, MAX_VISIBLE_APPOINTMENTS);
-            const hiddenCount = dayEvents.length - MAX_VISIBLE_APPOINTMENTS;
-
-            // Determine if this day is in the last two rows (for positioning the expanded panel)
-            const rowIndex = Math.floor(days.length / visibleDayCount);
-            const isBottomRow = rowIndex >= totalRows - 2;
-
-            // Get work hours for this day
-            let workHoursDisplay = null;
-            if (selectedEmployee && selectedEmployee.weekly_work_hours) {
-                const dayName = daysOfWeek[date.getDay()];
-                const hours = selectedEmployee.weekly_work_hours[dayName];
-                if (hours && hours['check-in'] && hours['check-out']) {
-                    workHoursDisplay = (
-                        <span className="ml-2 text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
-                            {hours['check-in']} - {hours['check-out']}
-                        </span>
-                    );
+                // Only render days that are in the visible days configuration
+                if (visibleDays.length > 0 && !visibleDays.includes(dayOfWeek)) {
+                    continue;
                 }
+
+                const dayEvents = events.filter(e => {
+                    const eDate = new Date(e.start);
+                    const isSameDay = eDate.getDate() === date.getDate() && eDate.getMonth() === date.getMonth() && eDate.getFullYear() === date.getFullYear();
+                    const matchesFilter = filterEmployeeId === 'all' || String(e.employeeId) === filterEmployeeId;
+                    return isSameDay && matchesFilter;
+                }).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+
+                renderDayCell(days as React.ReactNode[], date.getDate(), date, dayEvents, isToday(date), 1, visibleDayCount, selectedEmployee || null, daysOfWeekNames, 99); // More space in week view
             }
-
-            days.push(
-                <div
-                    key={day}
-                    onClick={(e) => {
-                        // Only open new appointment modal if not clicking on an event or expand button
-                        if (!(e.target as HTMLElement).closest('[data-event-item]') &&
-                            !(e.target as HTMLElement).closest('[data-expand-btn]')) {
-                            setExpandedDay(null);
-                            handleDayClick(day);
-                        }
-                    }}
-                    onDrop={(e) => handleDrop(e, day)}
-                    onDragOver={handleDragOver}
-                    className={`h-32 border border-gray-200 p-2 cursor-pointer hover:bg-gray-100 transition-colors relative ${isToday ? 'bg-pink-50' : 'bg-white'} ${isExpanded ? 'overflow-visible z-[100]' : 'overflow-hidden hover:overflow-visible hover:z-[40]'}`}
-                >
-                    <div className="flex justify-between items-start">
-                        <div className="flex items-center">
-                            <span className={`text-sm font-semibold ${isToday ? 'text-pink-600' : 'text-gray-700'}`}>{day}</span>
-                            {workHoursDisplay}
-                        </div>
-                        {dayEvents.length > 0 && (
-                            <span className="text-[9px] font-medium text-gray-400 bg-gray-100 px-1.5 rounded">
-                                {dayEvents.length}
-                            </span>
-                        )}
-                    </div>
-                    <div className="mt-1 space-y-0.5">
-                        {visibleEvents.map(event => {
-                            const clientName = event.clientName || availableClients.find(c => c.id === event.clientId)?.name || 'Sin cliente';
-                            const employeeName = availableEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar';
-                            const startTime = mounted && !event.isAllDay ? new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                            const endTime = mounted && !event.isAllDay ? new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-
-                            return (
-                                <div
-                                    key={event.id}
-                                    data-event-item="true"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleEventClick(e, event);
-                                    }}
-                                    className={`group text-xs p-1 rounded text-white shadow-sm transition-all duration-200 cursor-pointer hover:scale-[1.05] hover:shadow-xl hover:z-[50] relative ${event.status === 'canceled' ? 'bg-red-600' :
-                                        event.status === 'unavailable' ? 'bg-black' :
-                                            (event.status === 'confirmed' || event.deposit) ? 'bg-emerald-600' :
-                                                'bg-amber-500'
-                                        }`}
-                                >
-                                    <div className="flex items-center justify-between">
-                                        {mounted && !event.isAllDay && (
-                                            <span className="font-mono text-[9px] font-semibold">
-                                                {startTime}-{endTime}
-                                            </span>
-                                        )}
-                                        <span className="text-[10px] truncate group-hover:whitespace-normal group-hover:overflow-visible ml-1 flex-1">
-                                            {clientName}
-                                        </span>
-                                    </div>
-                                    <div className="hidden group-hover:block mt-1 pt-1 border-t border-white/20 animate-in fade-in slide-in-from-top-1 duration-200">
-                                        <div className="text-[8px] font-medium opacity-90 truncate">
-                                            Prof: {employeeName}
-                                        </div>
-                                        {event.title.includes(': ') && (
-                                            <div className="text-[8px] font-medium mt-0.5 italic opacity-80">
-                                                {event.title.split(': ')[1]}
-                                            </div>
-                                        )}
-                                        {event.deposit && (
-                                            <div className="text-[8px] font-bold mt-0.5">
-                                                Seña: ${event.deposit}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        {hasMoreAppointments && !isExpanded && (
-                            <button
-                                data-expand-btn="true"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setExpandedDay(day);
-                                }}
-                                className="w-full text-[10px] font-medium text-pink-600 hover:text-pink-700 hover:bg-pink-50 py-0.5 rounded transition-colors"
-                            >
-                                +{hiddenCount} más
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Expanded appointments panel */}
-                    {isExpanded && (
-                        <div
-                            data-expanded-panel="true"
-                            className={`absolute left-0 right-0 z-[200] bg-white border border-gray-300 rounded-lg shadow-2xl p-3 ${isBottomRow ? 'bottom-full mb-1' : 'top-full mt-1'
-                                }`}
-                            style={{ minWidth: '280px', maxHeight: '300px' }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
-                                <span className="font-bold text-gray-800 text-sm">
-                                    {day} {MONTHS[currentDate.getMonth()]} - {dayEvents.length} citas
-                                </span>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setExpandedDay(null);
-                                    }}
-                                    className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded transition-colors"
-                                >
-                                    ✕
-                                </button>
-                            </div>
-                            <div className="space-y-1.5 overflow-y-auto" style={{ maxHeight: '240px' }}>
-                                {dayEvents.map(event => {
-                                    const employeeName = availableEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar';
-                                    const clientName = event.clientName || availableClients.find(c => c.id === event.clientId)?.name || 'Sin cliente';
-                                    const startTime = mounted && !event.isAllDay ? new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                                    const endTime = mounted && !event.isAllDay ? new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-
-                                    return (
-                                        <div
-                                            key={event.id}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setExpandedDay(null);
-                                                handleEventClick(e, event);
-                                            }}
-                                            className={`group p-2 rounded-lg text-white shadow-sm cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all ${event.status === 'canceled' ? 'bg-red-600' :
-                                                event.status === 'unavailable' ? 'bg-black' :
-                                                    (event.status === 'confirmed' || event.deposit) ? 'bg-emerald-600' :
-                                                        'bg-amber-500'
-                                                }`}
-                                        >
-                                            <div className="flex items-center justify-between mb-1">
-                                                {mounted && !event.isAllDay && (
-                                                    <span className="font-mono text-xs font-bold">
-                                                        {startTime}-{endTime}
-                                                    </span>
-                                                )}
-                                                {event.deposit && (
-                                                    <span className="text-[10px] bg-white/20 px-1.5 rounded font-bold">
-                                                        ${event.deposit}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="text-xs font-medium truncate group-hover:whitespace-normal group-hover:overflow-visible">{clientName}</div>
-                                            <div className="hidden group-hover:block mt-1.5 pt-1.5 border-t border-white/20 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                <div className="text-[10px] opacity-90 truncate">
-                                                    Prof: {employeeName}
-                                                </div>
-                                                {event.title.includes(': ') && (
-                                                    <div className="text-[9px] font-medium mt-1 italic opacity-80">
-                                                        {event.title.split(': ')[1]}
-                                                    </div>
-                                                )}
-                                                {event.deposit && (
-                                                    <div className="text-[10px] font-bold mt-1">
-                                                        Seña: ${event.deposit}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
         }
 
         return days;
     };
 
+    const isToday = (date: Date) => {
+        return new Date().toDateString() === date.toDateString();
+    };
+
+    const renderDayCell = (
+        days: any[],
+        day: number,
+        date: Date,
+        dayEvents: AppointmentSchedule[],
+        isToday: boolean,
+        totalRows: number,
+        visibleDayCount: number,
+        selectedEmployee: Employee | null,
+        daysOfWeekNames: string[],
+        maxVisible: number
+    ) => {
+        const isExpanded = expandedDay === day;
+        const visibleEvents = isExpanded ? dayEvents : dayEvents.slice(0, maxVisible);
+        const hasMoreAppointments = dayEvents.length > maxVisible;
+        const hiddenCount = dayEvents.length - maxVisible;
+        const rowIndex = Math.floor(days.length / visibleDayCount);
+        const isBottomRow = rowIndex >= totalRows - 1;
+
+        // Get work hours for this day
+        let workHoursDisplay = null;
+        if (selectedEmployee && selectedEmployee.weekly_work_hours) {
+            const dayName = daysOfWeekNames[date.getDay()];
+            const hours = selectedEmployee.weekly_work_hours[dayName];
+            if (hours && hours['check-in'] && hours['check-out']) {
+                workHoursDisplay = (
+                    <span className="ml-2 text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                        {hours['check-in']} - {hours['check-out']}
+                    </span>
+                );
+            }
+        }
+
+        days.push(
+            <div
+                key={`${date.getTime()}-${day}`}
+                onClick={(e) => {
+                    if (!(e.target as HTMLElement).closest('[data-event-item]') &&
+                        !(e.target as HTMLElement).closest('[data-expand-btn]')) {
+                        setExpandedDay(null);
+                        setExpandedEventId(null);
+                        handleDayClick(day);
+                    }
+                }}
+                onDrop={(e) => handleDrop(e, day)}
+                onDragOver={handleDragOver}
+                className={`min-h-[120px] md:h-32 border border-gray-200 p-1 md:p-2 cursor-pointer hover:bg-gray-100 active:bg-gray-200 transition-colors relative ${isToday ? 'bg-pink-50' : 'bg-white'} ${isExpanded ? 'overflow-visible z-[100]' : 'overflow-hidden hover:overflow-visible hover:z-[40]'}`}
+            >
+                <div className="flex justify-between items-start">
+                    <div className="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-2">
+                        <span className={`text-xs md:text-sm font-semibold ${isToday ? 'text-pink-600' : 'text-gray-700'}`}>
+                            {/* Show full day name on mobile week view, just number on desktop/month view */}
+                            <span className="md:hidden font-bold mr-1">{DAYS[date.getDay()]}</span>
+                            {day}
+                        </span>
+                        <span className="hidden md:inline">{workHoursDisplay}</span>
+                    </div>
+                    {dayEvents.length > 0 && (
+                        <span className="text-[8px] md:text-[9px] font-medium text-gray-400 bg-gray-100 px-1 md:px-1.5 py-0.5 rounded">
+                            {dayEvents.length}
+                        </span>
+                    )}
+                </div>
+                <div className="mt-1 space-y-1">
+                    {visibleEvents.map(event => {
+                        const clientName = event.clientName || availableClients.find(c => c.id === event.clientId)?.name || 'Sin cliente';
+                        const employeeName = availableEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar';
+                        const startTime = mounted && !event.isAllDay ? new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                        const endTime = mounted && !event.isAllDay ? new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                        const isEventExpanded = expandedEventId === event.id;
+
+                        return (
+                            <div
+                                key={event.id}
+                                data-event-item="true"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Soft click opens expanded detail on mobile (hover imitation)
+                                    // Second click or direct click on action buttons opens modal
+                                    if (window.innerWidth < 768) {
+                                        if (expandedEventId === event.id) {
+                                            handleEventClick(e, event);
+                                        } else {
+                                            setExpandedEventId(event.id);
+                                        }
+                                    } else {
+                                        handleEventClick(e, event);
+                                    }
+                                }}
+                                className={`group text-[11px] md:text-xs p-1 md:p-1.5 rounded text-white shadow-sm transition-all duration-200 cursor-pointer active:scale-95 md:hover:scale-[1.05] hover:shadow-xl hover:z-[50] relative ${event.status === 'canceled' ? 'bg-red-600' :
+                                    event.status === 'unavailable' ? 'bg-black' :
+                                        (event.status === 'confirmed' || event.deposit) ? 'bg-emerald-600' :
+                                            'bg-amber-500'
+                                    } ${isEventExpanded ? 'ring-2 ring-white ring-offset-2 ring-offset-pink-400 z-[60]' : ''}`}
+                            >
+                                {/* Mobile Optimized Horizontal Layout (Week View) */}
+                                <div className="flex md:hidden items-center gap-2">
+                                    {mounted && !event.isAllDay && (
+                                        <span className="font-mono text-[10px] font-bold w-16 text-right shrink-0">
+                                            {startTime}
+                                        </span>
+                                    )}
+                                    <div className="flex-1 min-w-0 flex flex-col">
+                                        <span className="text-[11px] font-bold truncate leading-tight">
+                                            {clientName}
+                                        </span>
+                                        <span className="text-[10px] opacity-90 truncate leading-tight">
+                                            {event.title.includes(':') ? event.title.split(':')[1] : employeeName}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Desktop / Standard Layout */}
+                                <div className="hidden md:block">
+                                    <div className="flex items-center justify-between gap-1">
+                                        {mounted && !event.isAllDay && (
+                                            <span className="font-mono text-[9px] md:text-[10px] font-bold whitespace-nowrap">
+                                                {startTime}
+                                            </span>
+                                        )}
+                                        <span className={`text-[10px] md:text-[11px] font-medium truncate flex-1 ${isEventExpanded ? 'whitespace-normal' : ''}`}>
+                                            {clientName}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Expanded content for mobile tap or desktop hover */}
+                                <div className={`${isEventExpanded ? 'block' : 'hidden md:group-hover:block'} mt-1.5 pt-1.5 border-t border-white/20 animate-in fade-in slide-in-from-top-1 duration-200`}>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-[9px] opacity-90 font-bold uppercase">Fin: {endTime}</span>
+                                        {event.deposit && <span className="text-[9px] bg-white text-emerald-700 px-1 rounded font-bold">${event.deposit}</span>}
+                                    </div>
+                                    <div className="text-[9px] font-medium opacity-90 truncate">
+                                        👩‍💼 {employeeName}
+                                    </div>
+                                    {event.title.includes(': ') && (
+                                        <div className="text-[9px] font-medium mt-1 italic opacity-80 leading-tight">
+                                            ✨ {event.title.split(': ')[1]}
+                                        </div>
+                                    )}
+                                    {isEventExpanded && (
+                                        <div className="mt-2 flex gap-2">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleEventClick(e, event); }}
+                                                className="flex-1 bg-white/20 hover:bg-white/30 py-1 rounded text-[9px] font-bold uppercase tracking-wider"
+                                            >
+                                                Opciones
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setExpandedEventId(null); }}
+                                                className="bg-white/20 hover:bg-white/30 px-2 py-1 rounded text-[9px]"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {hasMoreAppointments && !isExpanded && (
+                        <button
+                            data-expand-btn="true"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedDay(day);
+                            }}
+                            className="w-full text-[10px] font-medium text-pink-600 hover:text-pink-700 hover:bg-pink-50 py-0.5 rounded transition-colors"
+                        >
+                            +{hiddenCount} más
+                        </button>
+                    )}
+                </div>
+
+                {isExpanded && (
+                    <div
+                        data-expanded-panel="true"
+                        className={`absolute left-0 right-0 z-[200] bg-white border border-gray-300 rounded-lg shadow-2xl p-3 ${isBottomRow ? 'bottom-full mb-1' : 'top-full mt-1'}`}
+                        style={{ minWidth: '280px', maxHeight: '300px' }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
+                            <span className="font-bold text-gray-800 text-sm">
+                                {day} {MONTHS[date.getMonth()]} - {dayEvents.length} citas
+                            </span>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedDay(null);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded transition-colors"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="space-y-1.5 overflow-y-auto" style={{ maxHeight: '240px' }}>
+                            {dayEvents.map(event => {
+                                const employeeName = availableEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar';
+                                const clientName = event.clientName || availableClients.find(c => c.id === event.clientId)?.name || 'Sin cliente';
+                                const startTime = mounted && !event.isAllDay ? new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                                const endTime = mounted && !event.isAllDay ? new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+                                return (
+                                    <div
+                                        key={event.id}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedDay(null);
+                                            handleEventClick(e, event);
+                                        }}
+                                        className={`group p-2 rounded-lg text-white shadow-sm cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all ${event.status === 'canceled' ? 'bg-red-600' :
+                                            event.status === 'unavailable' ? 'bg-black' :
+                                                (event.status === 'confirmed' || event.deposit) ? 'bg-emerald-600' :
+                                                    'bg-amber-500'
+                                            }`}
+                                    >
+                                        <div className="flex items-center justify-between mb-1">
+                                            {mounted && !event.isAllDay && (
+                                                <span className="font-mono text-xs font-bold">
+                                                    {startTime}-{endTime}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-xs font-medium">{clientName}</div>
+                                        <div className="text-[10px] opacity-90 mt-1">Prof: {employeeName}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+
     return (
         <div className="h-full flex flex-col bg-white">
-            <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-2xl font-bold text-gray-800 capitalize">
+            {/* Mobile-Responsive Header */}
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center p-3 md:p-6 border-b border-gray-200 gap-3">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800 capitalize text-center md:text-left">
                     {MONTHS[currentDate.getMonth()]} <span className="text-gray-400 font-light">{currentDate.getFullYear()}</span>
                 </h2>
-                <div className="flex items-center space-x-6">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
+                    {/* Employee Filter - Full width on mobile */}
                     <div className={`flex items-center space-x-2 p-1.5 rounded-xl border transition-all duration-300 ${filterEmployeeId === 'all'
                         ? 'bg-gray-50 border-gray-200'
                         : 'bg-pink-50 border-pink-200 shadow-sm ring-4 ring-pink-500/5'
                         }`}>
-                        <span className={`text-[10px] font-bold px-2 uppercase tracking-widest ${filterEmployeeId === 'all' ? 'text-gray-400' : 'text-pink-600'
+                        <span className={`text-[10px] font-bold px-2 uppercase tracking-widest whitespace-nowrap ${filterEmployeeId === 'all' ? 'text-gray-400' : 'text-pink-600'
                             }`}>
                             Filtrar:
                         </span>
@@ -869,7 +974,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                             value={filterEmployeeId}
                             onChange={(e) => setFilterEmployeeId(e.target.value)}
                             disabled={isLevel123}
-                            className={`text-sm border-none bg-transparent focus:ring-0 font-bold min-w-[180px] cursor-pointer ${filterEmployeeId === 'all' ? 'text-gray-700' : 'text-pink-700'
+                            className={`text-xs md:text-sm border-none bg-transparent focus:ring-0 font-bold flex-1 min-w-0 cursor-pointer ${filterEmployeeId === 'all' ? 'text-gray-700' : 'text-pink-700'
                                 } ${isLevel123 ? 'cursor-not-allowed opacity-70' : ''}`}
                         >
                             {!isLevel123 && <option value="all">Todos los Profesionales</option>}
@@ -878,35 +983,62 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                             ))}
                         </select>
                     </div>
-                    <div className="flex space-x-2">
-                        <button onClick={handlePrevMonth} className="px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 text-sm">
+                    {/* View Toggle */}
+                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                        <button
+                            onClick={() => setIsWeekView(false)}
+                            className={`px-3 py-1.5 text-[10px] font-bold rounded-md transition-all ${!isWeekView ? 'bg-white shadow text-pink-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            MES
+                        </button>
+                        <button
+                            onClick={() => setIsWeekView(true)}
+                            className={`px-3 py-1.5 text-[10px] font-bold rounded-md transition-all ${isWeekView ? 'bg-white shadow text-pink-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            SEM
+                        </button>
+                    </div>
+
+                    {/* Navigation Buttons */}
+                    <div className="flex space-x-2 justify-center">
+                        <button
+                            onClick={isWeekView ? handlePrevWeek : handlePrevMonth}
+                            className="px-3 md:px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 text-sm font-bold active:scale-95 transition-transform"
+                        >
                             ◀
                         </button>
-                        <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1.5 bg-pink-50 text-pink-700 border border-pink-200 rounded-md hover:bg-pink-100 text-sm font-medium">
+                        <button onClick={() => setCurrentDate(new Date())} className="px-3 md:px-4 py-2 bg-pink-50 text-pink-700 border border-pink-200 rounded-md hover:bg-pink-100 text-xs md:text-sm font-medium active:scale-95 transition-transform">
                             Hoy
                         </button>
-                        <button onClick={handleNextMonth} className="px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 text-sm">
+                        <button
+                            onClick={isWeekView ? handleNextWeek : handleNextMonth}
+                            className="px-3 md:px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 text-sm font-bold active:scale-95 transition-transform"
+                        >
                             ▶
                         </button>
                     </div>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-6 pb-16">
+            {/* Calendar Grid - Responsive padding */}
+            <div className="flex-1 overflow-auto p-2 md:p-6 pb-16 md:pb-16">
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-visible">
+                    {/* Day Headers - Responsive text */}
+                    {/* Day Headers - Responsive text - Hidden on mobile week view (agenda style) */}
                     <div
-                        className="grid gap-px text-center text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200"
+                        className={`grid gap-px text-center text-[10px] md:text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-200 ${isWeekView ? 'hidden md:grid' : ''}`}
                         style={{ gridTemplateColumns: `repeat(${visibleDays.length || 7}, minmax(0, 1fr))` }}
                     >
                         {DAYS.map((day, index) => {
                             if (visibleDays.length > 0 && !visibleDays.includes(index)) return null;
-                            return <div key={day} className="py-2.5 uppercase tracking-wide">{day}</div>
+                            return <div key={day} className="py-1.5 md:py-2.5 uppercase tracking-wide">{day}</div>
                         })}
                     </div>
 
+                    {/* Calendar Days Grid */}
                     <div
-                        className="grid gap-px bg-gray-200 border-b border-l border-r border-gray-200 overflow-visible"
-                        style={{ gridTemplateColumns: `repeat(${visibleDays.length || 7}, minmax(0, 1fr))` }}
+                        className={`grid gap-px bg-gray-200 border-b border-l border-r border-gray-200 overflow-visible ${isWeekView ? 'grid-cols-1 md:grid-cols-7' : ''}`}
+                        style={isWeekView && window.innerWidth < 768 ? {} : { gridTemplateColumns: `repeat(${visibleDays.length || 7}, minmax(0, 1fr))` }}
                     >
                         {renderDays()}
                     </div>
@@ -914,20 +1046,20 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             </div>
 
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        <div className={`px-6 py-4 flex-shrink-0 flex justify-between items-center ${formData.status === 'unavailable' ? 'bg-gray-800' :
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 md:p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[95vh] md:max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className={`px-4 md:px-6 py-3 md:py-4 flex-shrink-0 flex justify-between items-center ${formData.status === 'unavailable' ? 'bg-gray-800' :
                             formData.clientId ? 'bg-purple-600' : 'bg-pink-600'
                             }`}>
-                            <h3 className="text-lg font-bold text-white">
+                            <h3 className="text-base md:text-lg font-bold text-white">
                                 {formData.status === 'unavailable' ? 'Bloqueo / No Disponible' : (editingEvent ? 'Editar Turno' : 'Nuevo Turno')}
                             </h3>
-                            <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white transition-colors">
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white transition-colors p-1">
+                                <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
 
-                        <form onSubmit={handleSave} className="p-6 space-y-5 overflow-y-auto flex-1">
+                        <form onSubmit={handleSave} className="p-4 md:p-6 space-y-4 md:space-y-5 overflow-y-auto flex-1">
                             {errorMessage && (
                                 <div className="bg-red-50 border-l-4 border-red-500 p-4 animate-in slide-in-from-top-2 duration-300">
                                     <div className="flex items-center">
