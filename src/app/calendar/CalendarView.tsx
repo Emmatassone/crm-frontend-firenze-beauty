@@ -821,8 +821,8 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                 {/* Mobile Optimized Horizontal Layout (Week View) */}
                                 <div className="flex md:hidden items-center gap-2">
                                     {mounted && !event.isAllDay && (
-                                        <span className="font-mono text-[10px] font-bold w-16 text-right shrink-0">
-                                            {startTime}
+                                        <span className="font-mono text-[10px] font-bold w-20 text-right shrink-0 leading-tight">
+                                            {startTime}<br />{endTime}
                                         </span>
                                     )}
                                     <div className="flex-1 min-w-0 flex flex-col">
@@ -840,7 +840,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                     <div className="flex items-center justify-between gap-1">
                                         {mounted && !event.isAllDay && (
                                             <span className="font-mono text-[9px] md:text-[10px] font-bold whitespace-nowrap">
-                                                {startTime}
+                                                {startTime}-{endTime}
                                             </span>
                                         )}
                                         <span className={`text-[10px] md:text-[11px] font-medium truncate flex-1 ${isEventExpanded ? 'whitespace-normal' : ''}`}>
