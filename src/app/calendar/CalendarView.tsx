@@ -892,7 +892,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                 e.stopPropagation();
                                 setExpandedDay(day);
                             }}
-                            className="w-full text-[10px] font-medium text-pink-600 hover:text-pink-700 hover:bg-pink-50 py-0.5 rounded transition-colors"
+                            className="absolute bottom-1 left-1 right-1 mx-auto w-[95%] text-[10px] font-bold text-pink-600 bg-white/90 hover:bg-pink-50 py-0.5 rounded border border-pink-100 shadow-sm transition-all z-[30]"
                         >
                             +{hiddenCount} más
                         </button>
