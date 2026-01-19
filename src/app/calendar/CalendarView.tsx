@@ -363,6 +363,12 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
 
     const handleEventClick = (e: React.MouseEvent, event: AppointmentSchedule) => {
         e.stopPropagation();
+
+        // Restrict access for levels 1, 2, 3
+        if (isLevel123) {
+            return;
+        }
+
         setSelectedEventForAction(event);
         setIsActionModalOpen(true);
     };
@@ -859,17 +865,19 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                     )}
                                     {isEventExpanded && (
                                         <div className="mt-2 flex gap-2">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleEventClick(e, event); }}
-                                                className="flex-1 bg-white/20 hover:bg-white/30 py-1 rounded text-[9px] font-bold uppercase tracking-wider"
-                                            >
-                                                Opciones
-                                            </button>
+                                            {!isLevel123 && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleEventClick(e, event); }}
+                                                    className="flex-1 bg-white/20 hover:bg-white/30 py-1 rounded text-[9px] font-bold uppercase tracking-wider"
+                                                >
+                                                    Opciones
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setExpandedEventId(null); }}
-                                                className="bg-white/20 hover:bg-white/30 px-2 py-1 rounded text-[9px]"
+                                                className={`bg-white/20 hover:bg-white/30 px-2 py-1 rounded text-[9px] ${isLevel123 ? 'flex-1' : ''}`}
                                             >
-                                                ✕
+                                                {isLevel123 ? 'Cerrar' : '✕'}
                                             </button>
                                         </div>
                                     )}
