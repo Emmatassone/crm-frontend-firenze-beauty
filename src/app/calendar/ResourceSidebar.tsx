@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     getClientProfiles,
     getEmployees,
@@ -12,6 +13,7 @@ import {
     Appointment
 } from '@/lib/api';
 import { getEmployeeColor } from '@/lib/utils';
+import { useAuthStore } from '@/lib/store/auth';
 
 interface ResourceSidebarProps {
     onSelectClient: (client: ClientProfile | null) => void;
@@ -25,6 +27,9 @@ export default function ResourceSidebar({ onSelectClient, selectedClient }: Reso
     const [lastProfessionals, setLastProfessionals] = useState<Record<string, { name: string, color: string }>>({});
     const [activeTab, setActiveTab] = useState<'clients' | 'employees'>('clients');
     const [searchTerm, setSearchTerm] = useState('');
+    const router = useRouter();
+    const { level } = useAuthStore();
+    const isLevel4OrAbove = level === '4' || level === '5' || level === '6';
 
     useEffect(() => {
         fetchResources();
@@ -117,7 +122,7 @@ export default function ResourceSidebar({ onSelectClient, selectedClient }: Reso
 
             <div className="flex-1 overflow-y-auto">
                 {activeTab === 'clients' && (
-                    <div className="divide-y divide-gray-100">
+                    <div className="divide-y divide-gray-100 pb-16 relative">
                         {filteredClients.map(client => (
                             <div
                                 key={client.id}
@@ -146,6 +151,19 @@ export default function ResourceSidebar({ onSelectClient, selectedClient }: Reso
                                 </div>
                             </div>
                         ))}
+                        {isLevel4OrAbove && (
+                            <div className="sticky bottom-0 left-0 right-0 p-3 bg-white/80 backdrop-blur-sm border-t border-gray-100">
+                                <button
+                                    onClick={() => router.push('/clients/new')}
+                                    className="w-full flex items-center justify-center space-x-2 bg-pink-50 text-pink-700 py-2 rounded-lg text-sm font-medium hover:bg-pink-100 transition-all border border-pink-200 active:scale-[0.98]"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                    <span>Agregar Cliente</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
 

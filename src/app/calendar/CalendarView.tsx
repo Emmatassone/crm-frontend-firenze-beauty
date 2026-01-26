@@ -63,6 +63,8 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [eventToDelete, setEventToDelete] = useState<string | null>(null);
+    const [isLongDurationConfirmOpen, setIsLongDurationConfirmOpen] = useState(false);
+    const [pendingSaveData, setPendingSaveData] = useState<CreateAppointmentScheduleDto | null>(null);
     const [mounted, setMounted] = useState(false);
     const [expandedDay, setExpandedDay] = useState<number | null>(null);
     const [isWeekView, setIsWeekView] = useState(false); // Week view for mobile
@@ -486,6 +488,31 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         setTimeout(() => setSuccessMessage(null), 3000);
     };
 
+    // Helper function to perform the actual save
+    const performSave = async (finalData: CreateAppointmentScheduleDto) => {
+        try {
+            // Ensure dates are sent as UTC ISO strings
+            const startISO = new Date(finalData.start).toISOString();
+            const endISO = new Date(finalData.end).toISOString();
+            finalData.start = startISO;
+            finalData.end = endISO;
+
+            if (editingEvent) {
+                await updateAppointmentSchedule(editingEvent.id, finalData);
+            } else {
+                await createAppointmentSchedule(finalData);
+            }
+            setIsModalOpen(false);
+            setIsLongDurationConfirmOpen(false);
+            setPendingSaveData(null);
+            onClearClient();
+            fetchData();
+        } catch (error) {
+            console.error('Error saving event', error);
+            alert('Error al guardar el evento');
+        }
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
@@ -566,24 +593,36 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
 
             setErrorMessage(null);
 
-            // Ensure dates are sent as UTC ISO strings
-            const startISO = new Date(finalData.start).toISOString();
-            const endISO = new Date(finalData.end).toISOString();
-            finalData.start = startISO;
-            finalData.end = endISO;
+            // Check if duration is greater than 3 hours (180 minutes)
+            const startTime = new Date(finalData.start).getTime();
+            const endTime = new Date(finalData.end).getTime();
+            const durationMinutes = (endTime - startTime) / (1000 * 60);
+            const THREE_HOURS_IN_MINUTES = 180;
 
-            if (editingEvent) {
-                await updateAppointmentSchedule(editingEvent.id, finalData);
-            } else {
-                await createAppointmentSchedule(finalData);
+            if (durationMinutes > THREE_HOURS_IN_MINUTES && !finalData.isAllDay) {
+                // Store the data and show confirmation modal
+                setPendingSaveData(finalData);
+                setIsLongDurationConfirmOpen(true);
+                return;
             }
-            setIsModalOpen(false);
-            onClearClient();
-            fetchData();
+
+            // Proceed with save
+            await performSave(finalData);
         } catch (error) {
             console.error('Error saving event', error);
             alert('Error al guardar el evento');
         }
+    };
+
+    const confirmLongDurationSave = async () => {
+        if (pendingSaveData) {
+            await performSave(pendingSaveData);
+        }
+    };
+
+    const cancelLongDurationSave = () => {
+        setIsLongDurationConfirmOpen(false);
+        setPendingSaveData(null);
     };
 
 
@@ -1476,6 +1515,53 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                     className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors shadow-lg shadow-red-200"
                                 >
                                     Eliminar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isLongDurationConfirmOpen && pendingSaveData && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-8 text-center">
+                            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Turno de larga duración</h3>
+                            <p className="text-gray-500 mb-4">
+                                El turno tiene una duración mayor a 3 horas.
+                            </p>
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6">
+                                <p className="text-sm text-amber-800 font-medium">
+                                    Duración: {(() => {
+                                        const start = new Date(pendingSaveData.start).getTime();
+                                        const end = new Date(pendingSaveData.end).getTime();
+                                        const minutes = Math.round((end - start) / (1000 * 60));
+                                        const hours = Math.floor(minutes / 60);
+                                        const remainingMinutes = minutes % 60;
+                                        return `${hours}h ${remainingMinutes}min`;
+                                    })()}
+                                </p>
+                            </div>
+                            <p className="text-gray-500 mb-6 text-sm">
+                                ¿Estás seguro de que la hora de fin es correcta?
+                            </p>
+                            <div className="flex space-x-3">
+                                <button
+                                    onClick={cancelLongDurationSave}
+                                    className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+                                >
+                                    Corregir
+                                </button>
+                                <button
+                                    onClick={confirmLongDurationSave}
+                                    className="flex-1 px-4 py-3 bg-amber-600 text-white rounded-xl font-semibold hover:bg-amber-700 transition-colors shadow-lg shadow-amber-200"
+                                >
+                                    Confirmar
                                 </button>
                             </div>
                         </div>
