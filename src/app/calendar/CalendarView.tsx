@@ -58,6 +58,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [serviceDataSources, setServiceDataSources] = useState<Record<string, 'personal' | 'default'>>({});
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [filterEmployeeId, setFilterEmployeeId] = useState<string>('all');
+    const [filterClientId, setFilterClientId] = useState<string>('all');
     const [isActionModalOpen, setIsActionModalOpen] = useState(false);
     const [selectedEventForAction, setSelectedEventForAction] = useState<AppointmentSchedule | null>(null);
     const [visibleDays, setVisibleDays] = useState<number[]>([1, 2, 3, 4, 5, 6]); // Default Mon-Sat
@@ -765,8 +766,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 const dayEvents = events.filter(e => {
                     const eDate = new Date(e.start);
                     const isSameDay = eDate.getDate() === day && eDate.getMonth() === month && eDate.getFullYear() === year;
-                    const matchesFilter = filterEmployeeId === 'all' || String(e.employeeId) === filterEmployeeId;
-                    return isSameDay && matchesFilter;
+                    const matchesEmployee = filterEmployeeId === 'all' || String(e.employeeId) === filterEmployeeId;
+                    const matchesClient = filterClientId === 'all' || String(e.clientId) === filterClientId;
+                    return isSameDay && matchesEmployee && matchesClient;
                 }).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
                 renderDayCell(days as React.ReactNode[], day, date, dayEvents, isToday(date), totalRows, visibleDayCount, selectedEmployee || null, daysOfWeekNames, MAX_VISIBLE_APPOINTMENTS);
@@ -788,8 +790,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 const dayEvents = events.filter(e => {
                     const eDate = new Date(e.start);
                     const isSameDay = eDate.getDate() === date.getDate() && eDate.getMonth() === date.getMonth() && eDate.getFullYear() === date.getFullYear();
-                    const matchesFilter = filterEmployeeId === 'all' || String(e.employeeId) === filterEmployeeId;
-                    return isSameDay && matchesFilter;
+                    const matchesEmployee = filterEmployeeId === 'all' || String(e.employeeId) === filterEmployeeId;
+                    const matchesClient = filterClientId === 'all' || String(e.clientId) === filterClientId;
+                    return isSameDay && matchesEmployee && matchesClient;
                 }).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
                 renderDayCell(days as React.ReactNode[], date.getDate(), date, dayEvents, isToday(date), 1, visibleDayCount, selectedEmployee || null, daysOfWeekNames, 99); // More space in week view
@@ -1049,6 +1052,52 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                     {MONTHS[currentDate.getMonth()]} <span className="text-gray-400 font-light">{currentDate.getFullYear()}</span>
                 </h2>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
+                    {/* Client Filter */}
+                    <div className={`flex items-center space-x-2 p-1.5 rounded-xl border transition-all duration-300 min-w-[200px] ${filterClientId === 'all'
+                        ? 'bg-gray-50 border-gray-200'
+                        : 'bg-purple-50 border-purple-200 shadow-sm ring-4 ring-purple-500/5'
+                        }`}>
+                        <span className={`text-[10px] font-bold px-2 uppercase tracking-widest whitespace-nowrap ${filterClientId === 'all' ? 'text-gray-400' : 'text-purple-600'
+                            }`}>
+                            Cliente:
+                        </span>
+                        <div className="flex-1 min-w-0">
+                            <Select
+                                isClearable
+                                placeholder="Todos los clientes"
+                                styles={{
+                                    control: (base) => ({
+                                        ...base,
+                                        border: 'none',
+                                        backgroundColor: 'transparent',
+                                        boxShadow: 'none',
+                                        minHeight: 'auto',
+                                        fontSize: '12px',
+                                        fontWeight: 'bold',
+                                        color: filterClientId === 'all' ? '#374151' : '#7e22ce'
+                                    }),
+                                    placeholder: (base) => ({
+                                        ...base,
+                                        color: '#9ca3af'
+                                    }),
+                                    singleValue: (base) => ({
+                                        ...base,
+                                        color: filterClientId === 'all' ? '#374151' : '#7e22ce'
+                                    }),
+                                    indicatorSeparator: () => ({ display: 'none' }),
+                                    dropdownIndicator: (base) => ({ ...base, padding: '2px' }),
+                                    clearIndicator: (base) => ({ ...base, padding: '2px' })
+                                }}
+                                options={[
+                                    { value: 'all', label: 'Todos los clientes' },
+                                    ...availableClients.map(c => ({ value: c.id, label: c.name || c.phoneNumber }))
+                                ]}
+                                value={filterClientId === 'all' ? { value: 'all', label: 'Todos los clientes' } : { value: filterClientId, label: availableClients.find(c => c.id === filterClientId)?.name || filterClientId }}
+                                onChange={(selected: any) => setFilterClientId(selected?.value || 'all')}
+                            />
+                        </div>
+                    </div>
+
                     {/* Employee Filter - Full width on mobile */}
                     <div className={`flex items-center space-x-2 p-1.5 rounded-xl border transition-all duration-300 ${filterEmployeeId === 'all'
                         ? 'bg-gray-50 border-gray-200'
