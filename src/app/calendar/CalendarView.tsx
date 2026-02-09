@@ -21,6 +21,7 @@ import {
     Service
 } from '@/lib/api';
 import { useAuthStore } from '@/lib/store/auth';
+import TimePickerAMPM from '@/components/TimePickerAMPM';
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MONTHS = [
@@ -194,35 +195,51 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 for (const svcOption of selectedServices) {
                     const serviceName = svcOption.label;
                     const serviceId = svcOption.value;
-                    let serviceDuration = null;
+                    let serviceDuration: number | null = null;
                     let source: 'personal' | 'default' | null = null;
+                    let hasInvalidPersonalData = false;
 
                     // 1. Look for personal time across the last 4 months
                     if (performanceData && performanceData.length > 0) {
                         for (const performance of performanceData) {
-                            const breakdown = typeof performance.service_time_breakdown === 'string'
+                            let breakdown = typeof performance.service_time_breakdown === 'string'
                                 ? JSON.parse(performance.service_time_breakdown)
                                 : performance.service_time_breakdown;
 
-                            const match = (breakdown || []).find((s: any) => s.service === serviceName);
+                            // Handle the edge case where breakdown might be nested array [[]] or null
+                            if (Array.isArray(breakdown) && breakdown.length === 1 && Array.isArray(breakdown[0]) && breakdown[0].length === 0) {
+                                breakdown = [];
+                            }
+
+                            const match = (breakdown || []).find((s: any) => s && s.service === serviceName);
                             if (match) {
-                                serviceDuration = match.avg_duration_minutes;
-                                source = 'personal';
-                                break;
+                                const personalDuration = Number(match.avg_duration_minutes);
+
+                                // Only use personal time if it's valid (positive)
+                                if (personalDuration > 0) {
+                                    serviceDuration = personalDuration;
+                                    source = 'personal';
+                                    break;
+                                } else {
+                                    // Personal time exists but is invalid (negative or zero)
+                                    // This happens when arrival/leave times were entered incorrectly - skip and try other months or fallback
+                                    hasInvalidPersonalData = true;
+                                    // Don't break - continue looking in other months or fall back to default
+                                }
                             }
                         }
                     }
 
-                    // 2. If no personal time, check service default duration
+                    // 2. If no valid personal time, check service default duration
                     if (serviceDuration === null) {
                         const serviceDef = availableServices.find(s => s.id === serviceId);
-                        if (serviceDef && serviceDef.duration) {
-                            serviceDuration = serviceDef.duration;
-                            source = 'default';
+                        if (serviceDef && serviceDef.duration && Number(serviceDef.duration) > 0) {
+                            serviceDuration = Number(serviceDef.duration);
+                            source = hasInvalidPersonalData ? 'default' : 'default'; // Mark as default
                         }
                     }
 
-                    if (serviceDuration !== null) {
+                    if (serviceDuration !== null && serviceDuration > 0) {
                         totalDuration += serviceDuration;
                         if (source) {
                             newSources[serviceName] = source;
@@ -1342,30 +1359,24 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Hora Inicio</label>
-                                    <input
-                                        type="time"
-                                        required
-                                        className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 border"
+                                    <TimePickerAMPM
                                         value={formData.start?.split('T')[1]?.substring(0, 5) || ''}
-                                        onChange={(e) => {
-                                            const time = e.target.value;
+                                        onChange={(time) => {
                                             const datePart = formData.start.split('T')[0];
                                             setFormData({ ...formData, start: `${datePart}T${time}` });
                                         }}
+                                        required
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Hora Fin</label>
-                                    <input
-                                        type="time"
-                                        required
-                                        className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 border"
+                                    <TimePickerAMPM
                                         value={formData.end?.split('T')[1]?.substring(0, 5) || ''}
-                                        onChange={(e) => {
-                                            const time = e.target.value;
+                                        onChange={(time) => {
                                             const datePart = formData.end.split('T')[0];
                                             setFormData({ ...formData, end: `${datePart}T${time}` });
                                         }}
+                                        required
                                     />
                                 </div>
                             </div>

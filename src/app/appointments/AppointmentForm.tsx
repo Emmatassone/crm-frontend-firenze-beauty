@@ -7,6 +7,7 @@ import Link from 'next/link';
 import Select from 'react-select';
 import { Appointment, ClientProfile, Employee, getEmployees, getServices, Service } from '@/lib/api';
 import { useEffect, useState, useCallback } from 'react';
+import TimePickerAMPM from '@/components/TimePickerAMPM';
 
 const appointmentSchema = z.object({
   appointmentDate: z.string().min(1, 'La fecha es requerida').refine(val => {
@@ -70,8 +71,8 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
         }
         return dateStr;
       })() : getTodayDate(),
-      arrivalTime: defaultValues?.arrivalTime || '',
-      leaveTime: defaultValues?.leaveTime || '',
+      arrivalTime: defaultValues?.arrivalTime || '09:00',
+      leaveTime: defaultValues?.leaveTime || '10:00',
       serviceConsumed: defaultValues?.serviceConsumed || [],
       serviceQuantities: defaultValues?.serviceQuantities || [],
       usedDiscount: defaultValues?.usedDiscount || [],
@@ -126,6 +127,24 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
   const serviceQuantities = watch('serviceQuantities') || [];
   const usedDiscount = watch('usedDiscount') || [];
   const servicePrices = watch('servicePrices') || [];
+  const arrivalTime = watch('arrivalTime');
+  const leaveTime = watch('leaveTime');
+
+  // Validate that leave time is not before arrival time
+  const isTimeInvalid = (): boolean => {
+    if (!arrivalTime || !leaveTime) return false; // Both times must be set for validation
+
+    // Parse times in HH:MM format
+    const [arrHour, arrMin] = arrivalTime.split(':').map(Number);
+    const [leaveHour, leaveMin] = leaveTime.split(':').map(Number);
+
+    const arrivalMinutes = arrHour * 60 + arrMin;
+    const leaveMinutes = leaveHour * 60 + leaveMin;
+
+    return leaveMinutes <= arrivalMinutes;
+  };
+
+  const timeValidationError = isTimeInvalid();
 
   const calculateTotalPrice = useCallback(() => {
     if (!serviceConsumed || serviceConsumed.length === 0) return { total: 0, originalTotal: 0 };
@@ -308,16 +327,43 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label htmlFor="arrivalTime" className={labelStyle}>Hora de Llegada (HH:MM)</label>
-          <input id="arrivalTime" type="time" {...register('arrivalTime')} className={`${inputStyle} ${errors.arrivalTime ? 'border-red-500' : ''}`} />
+          <Controller
+            name="arrivalTime"
+            control={control}
+            render={({ field }) => (
+              <TimePickerAMPM
+                value={field.value || ''}
+                onChange={(time) => field.onChange(time)}
+              />
+            )}
+          />
           {errors.arrivalTime && <p className={errorStyle}>{errors.arrivalTime.message}</p>}
         </div>
 
         <div>
           <label htmlFor="leaveTime" className={labelStyle}>Hora de Salida (HH:MM)</label>
-          <input id="leaveTime" type="time" {...register('leaveTime')} className={`${inputStyle} ${errors.leaveTime ? 'border-red-500' : ''}`} />
+          <Controller
+            name="leaveTime"
+            control={control}
+            render={({ field }) => (
+              <TimePickerAMPM
+                value={field.value || ''}
+                onChange={(time) => field.onChange(time)}
+              />
+            )}
+          />
           {errors.leaveTime && <p className={errorStyle}>{errors.leaveTime.message}</p>}
         </div>
       </div>
+
+      {/* Time validation error message */}
+      {timeValidationError && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-3">
+          <p className="text-sm text-red-600 font-medium">
+            ⚠️ La hora de salida debe ser posterior a la hora de llegada
+          </p>
+        </div>
+      )}
 
       <div>
         <label htmlFor="usedDiscount" className={labelStyle}>Cantidad y Descuento por Servicio</label>
@@ -501,7 +547,12 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
         <Link href="/appointments" className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
           Cancelar
         </Link>
-        <button type="submit" disabled={isLoading} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 disabled:opacity-50">
+        <button
+          type="submit"
+          disabled={isLoading || timeValidationError}
+          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          title={timeValidationError ? 'Corrige las horas antes de guardar' : ''}
+        >
           {isLoading ? 'Guardando...' : (isEdit ? 'Actualizar Cita' : 'Guardar Cita')}
         </button>
       </div>

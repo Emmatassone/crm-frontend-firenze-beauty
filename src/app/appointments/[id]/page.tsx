@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getAppointmentById, updateAppointment, deleteAppointment, type Appointment, type UpdateAppointmentDto } from '@/lib/api';
+import TimePickerAMPM from '@/components/TimePickerAMPM';
 
 export default function AppointmentDetailsPage() {
   const params = useParams();
@@ -156,6 +157,24 @@ export default function AppointmentDetailsPage() {
     setShowDeleteConfirm(false);
   };
 
+  // Validate that leave time is not before arrival time
+  const isTimeInvalid = (): boolean => {
+    const arrival = editForm.arrivalTime;
+    const leave = editForm.leaveTime;
+    if (!arrival || !leave) return false; // Both times must be set for validation
+
+    // Parse times in HH:MM format
+    const [arrHour, arrMin] = arrival.split(':').map(Number);
+    const [leaveHour, leaveMin] = leave.split(':').map(Number);
+
+    const arrivalMinutes = arrHour * 60 + arrMin;
+    const leaveMinutes = leaveHour * 60 + leaveMin;
+
+    return leaveMinutes <= arrivalMinutes;
+  };
+
+  const timeValidationError = isEditing && isTimeInvalid();
+
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-[40vh] text-gray-700 animate-pulse">Cargando turno…</div>;
   }
@@ -208,8 +227,9 @@ export default function AppointmentDetailsPage() {
             <>
               <button
                 onClick={handleSave}
-                disabled={isSaving}
-                className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white"
+                disabled={isSaving || timeValidationError}
+                className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white"
+                title={timeValidationError ? 'Corrige las horas antes de guardar' : ''}
               >
                 {isSaving ? 'Guardando...' : 'Guardar'}
               </button>
@@ -228,6 +248,15 @@ export default function AppointmentDetailsPage() {
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4">
           <p className="text-red-600">{error}</p>
+        </div>
+      )}
+
+      {/* Time validation error message */}
+      {timeValidationError && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-3">
+          <p className="text-sm text-red-600 font-medium">
+            ⚠️ La hora de salida debe ser posterior a la hora de llegada
+          </p>
         </div>
       )}
 
@@ -319,12 +348,9 @@ export default function AppointmentDetailsPage() {
         <div>
           <label className="text-sm text-gray-500 block">Hora de Llegada</label>
           {isEditing ? (
-            <input
-              type="time"
+            <TimePickerAMPM
               value={editForm.arrivalTime || ''}
-              onChange={(e) => handleInputChange('arrivalTime', e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-              disabled={isSaving}
+              onChange={(time) => handleInputChange('arrivalTime', time)}
             />
           ) : (
             <div className="text-lg text-gray-900">{appointment.arrivalTime || 'N/D'}</div>
@@ -334,12 +360,9 @@ export default function AppointmentDetailsPage() {
         <div>
           <label className="text-sm text-gray-500 block">Hora de Salida</label>
           {isEditing ? (
-            <input
-              type="time"
+            <TimePickerAMPM
               value={editForm.leaveTime || ''}
-              onChange={(e) => handleInputChange('leaveTime', e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-              disabled={isSaving}
+              onChange={(time) => handleInputChange('leaveTime', time)}
             />
           ) : (
             <div className="text-lg text-gray-900">{appointment.leaveTime || 'N/D'}</div>
