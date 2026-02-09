@@ -16,6 +16,8 @@ export default function ServiceDetailsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDurationConfirm, setShowDurationConfirm] = useState(false);
+  const [isPendingSave, setIsPendingSave] = useState(false);
   const [editForm, setEditForm] = useState<UpdateServiceDto>({});
 
   useEffect(() => {
@@ -50,16 +52,24 @@ export default function ServiceDetailsPage() {
     };
   }, [id]);
 
-  const handleSave = async () => {
+  const handleSave = async (force: boolean = false) => {
     if (!id || !service) return;
-    
+
+    // Validate duration
+    const dur = editForm.duration ? Number(editForm.duration) : 0;
+    if (!force && dur > 0 && (dur > 240 || dur < 10)) {
+      setShowDurationConfirm(true);
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
-    
+
     try {
       const updatedService = await updateService(id, editForm);
       setService(updatedService);
       setIsEditing(false);
+      setShowDurationConfirm(false);
     } catch (err: any) {
       setError(err?.message || 'No se pudo actualizar el servicio');
     } finally {
@@ -91,10 +101,10 @@ export default function ServiceDetailsPage() {
 
   const handleDelete = async () => {
     if (!id) return;
-    
+
     setIsDeleting(true);
     setError(null);
-    
+
     try {
       await deleteService(id);
       router.push('/services');
@@ -165,7 +175,7 @@ export default function ServiceDetailsPage() {
           ) : (
             <>
               <button
-                onClick={handleSave}
+                onClick={() => handleSave()}
                 disabled={isSaving}
                 className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white"
               >
@@ -250,8 +260,8 @@ export default function ServiceDetailsPage() {
             >
               <option value="">Seleccionar área...</option>
               <option value="Uñas">Uñas</option>
-              <option value="Cejas y Pestañas">Cejas y Pestañas</option>
-              <option value="Peluquería">Peluquería</option>
+              <option value="Pestañas y Cejas">Pestañas y Cejas</option>
+              <option value="Peluqueria">Peluqueria</option>
               <option value="Maquillaje">Maquillaje</option>
               <option value="Cosmetología">Cosmetología</option>
               <option value="Labios">Labios</option>
@@ -305,7 +315,7 @@ export default function ServiceDetailsPage() {
               Confirmar Eliminación
             </h3>
             <p className="text-gray-600 mb-6">
-              ¿Estás seguro de que deseas eliminar el servicio "{service.name}"? 
+              ¿Estás seguro de que deseas eliminar el servicio "{service.name}"?
               Esta acción no se puede deshacer.
             </p>
             <div className="flex gap-3 justify-end">
@@ -322,6 +332,37 @@ export default function ServiceDetailsPage() {
                 className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white"
               >
                 {isDeleting ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Duration Confirmation Modal */}
+      {showDurationConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center space-x-3 mb-4 text-amber-600">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <h3 className="text-lg font-bold">Confirmar Duración Atípica</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              La duración ingresada ({editForm.duration} minutos) es inusual (menos de 10 min o más de 4 horas). ¿Deseas continuar?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDurationConfirm(false)}
+                className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-colors"
+              >
+                Revisar
+              </button>
+              <button
+                onClick={() => handleSave(true)}
+                disabled={isSaving}
+                className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-md shadow-amber-200 transition-colors disabled:opacity-50"
+              >
+                {isSaving ? 'Guardando...' : 'Confirmar y Guardar'}
               </button>
             </div>
           </div>
