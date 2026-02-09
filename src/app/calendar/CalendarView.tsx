@@ -266,6 +266,27 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         calculateDuration();
     }, [formData.employeeId, selectedServices, formData.start, availableEmployees]);
 
+    // Validate that end time is not before start time
+    const isTimeInvalid = (): boolean => {
+        if (!formData.start || !formData.end) return false;
+
+        // Parse times from ISO strings (YYYY-MM-DDTHH:MM)
+        const startTimePart = formData.start.split('T')[1];
+        const endTimePart = formData.end.split('T')[1];
+
+        if (!startTimePart || !endTimePart) return false;
+
+        const [startHour, startMin] = startTimePart.split(':').map(Number);
+        const [endHour, endMin] = endTimePart.split(':').map(Number);
+
+        const startMinutes = startHour * 60 + startMin;
+        const endMinutes = endHour * 60 + endMin;
+
+        return endMinutes <= startMinutes;
+    };
+
+    const timeValidationError = isTimeInvalid();
+
     const getDaysInMonth = (year: number, month: number) => {
         return new Date(year, month + 1, 0).getDate();
     };
@@ -532,6 +553,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (timeValidationError) return;
+
         try {
             const finalData = { ...formData };
             // If we have selected services, use their names for the title
@@ -1379,6 +1403,14 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                         required
                                     />
                                 </div>
+
+                                {timeValidationError && (
+                                    <div className="col-span-2 bg-red-50 border border-red-200 rounded-md p-3">
+                                        <p className="text-sm text-red-600 font-medium">
+                                            ⚠️ La hora de salida debe ser posterior a la hora de llegada
+                                        </p>
+                                    </div>
+                                )}
                             </div>
 
 
@@ -1434,7 +1466,8 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                         </button>
                                         <button
                                             type="submit"
-                                            className="bg-pink-600 text-white px-5 py-2 rounded-lg hover:bg-pink-700 transition-colors shadow-sm text-sm font-medium"
+                                            disabled={timeValidationError}
+                                            className="bg-pink-600 text-white px-5 py-2 rounded-lg hover:bg-pink-700 transition-colors shadow-sm text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             Guardar Turno
                                         </button>
