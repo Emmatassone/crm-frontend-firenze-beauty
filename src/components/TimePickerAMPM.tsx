@@ -97,14 +97,33 @@ export default function TimePickerAMPM({ value, onChange, className = '', requir
                             <div className="sticky top-0 bg-gray-50 px-2 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                                 Hora
                             </div>
+                            {/* Manual Hour Input */}
+                            <div className="px-1 py-1 border-b border-gray-100 bg-gray-50/50">
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="12"
+                                    value={hour12}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        if (!isNaN(val) && val >= 1 && val <= 12) {
+                                            handleHourChange(val);
+                                        }
+                                    }}
+                                    onFocus={(e) => e.target.select()}
+                                    className="w-full text-center py-1 text-sm border-pink-200 rounded focus:border-pink-500 focus:ring-1 focus:ring-pink-500 outline-none transition-all placeholder:text-gray-300"
+                                    placeholder="--"
+                                    title="Escribir hora manualmente"
+                                />
+                            </div>
                             {hours.map((h) => (
                                 <button
                                     key={h}
                                     type="button"
                                     onClick={() => handleHourChange(h)}
                                     className={`w-full text-center py-2 text-sm transition-colors ${h === hour12
-                                            ? 'bg-pink-600 text-white font-bold'
-                                            : 'hover:bg-pink-50 text-gray-700'
+                                        ? 'bg-pink-600 text-white font-bold'
+                                        : 'hover:bg-pink-50 text-gray-700'
                                         }`}
                                 >
                                     {h.toString().padStart(2, '0')}
@@ -117,14 +136,33 @@ export default function TimePickerAMPM({ value, onChange, className = '', requir
                             <div className="sticky top-0 bg-gray-50 px-2 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                                 Min
                             </div>
+                            {/* Manual Minute Input */}
+                            <div className="px-1 py-1 border-b border-gray-100 bg-gray-50/50">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="59"
+                                    value={minute}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        if (!isNaN(val) && val >= 0 && val <= 59) {
+                                            handleMinuteChange(val);
+                                        }
+                                    }}
+                                    onFocus={(e) => e.target.select()}
+                                    className="w-full text-center py-1 text-sm border-pink-200 rounded focus:border-pink-500 focus:ring-1 focus:ring-pink-500 outline-none transition-all placeholder:text-gray-300"
+                                    placeholder="--"
+                                    title="Escribir minutos manualmente"
+                                />
+                            </div>
                             {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
                                 <button
                                     key={m}
                                     type="button"
                                     onClick={() => handleMinuteChange(m)}
                                     className={`w-full text-center py-2 text-sm transition-colors ${m === minute
-                                            ? 'bg-pink-600 text-white font-bold'
-                                            : 'hover:bg-pink-50 text-gray-700'
+                                        ? 'bg-pink-600 text-white font-bold'
+                                        : 'hover:bg-pink-50 text-gray-700'
                                         }`}
                                 >
                                     {m.toString().padStart(2, '0')}
@@ -143,8 +181,8 @@ export default function TimePickerAMPM({ value, onChange, className = '', requir
                                     type="button"
                                     onClick={() => handlePeriodChange(p)}
                                     className={`w-full text-center py-3 text-sm font-bold transition-colors ${p === period
-                                            ? 'bg-pink-600 text-white'
-                                            : 'hover:bg-pink-50 text-gray-500'
+                                        ? 'bg-pink-600 text-white'
+                                        : 'hover:bg-pink-50 text-gray-500'
                                         }`}
                                 >
                                     {p}

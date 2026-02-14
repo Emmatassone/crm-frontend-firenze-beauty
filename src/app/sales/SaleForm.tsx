@@ -33,6 +33,7 @@ interface SaleFormProps {
 export default function SaleForm({ onSubmit, isLoading, defaultValues, clients = [] }: SaleFormProps) {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
+    const [showAdvanced, setShowAdvanced] = useState(false);
 
     useEffect(() => {
         async function fetchData() {
@@ -62,7 +63,13 @@ export default function SaleForm({ onSubmit, isLoading, defaultValues, clients =
         resolver: zodResolver(saleSchema),
         defaultValues: {
             items: [],
-            dateTime: new Date().toISOString().split('T')[0],
+            dateTime: (() => {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            })(),
             ...defaultValues,
         },
     });
@@ -91,6 +98,16 @@ export default function SaleForm({ onSubmit, isLoading, defaultValues, clients =
     const { total, originalTotal } = calculateTotals();
 
     const handleFormSubmit: SubmitHandler<SaleFormValues> = (data) => {
+        // Ensure dateTime is treated as local date to avoid timezone shifts
+        let finalDateTime = data.dateTime;
+        if (data.dateTime) {
+            // Append current time in local format to preserve the day correctly
+            const now = new Date();
+            const timePart = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+            const localDate = new Date(`${data.dateTime}T${timePart}`);
+            finalDateTime = localDate.toISOString();
+        }
+
         const dto: CreateProductSaleDto = {
             productId: data.items.map(i => i.productId),
             quantitySold: data.items.map(i => i.quantity),
@@ -100,7 +117,7 @@ export default function SaleForm({ onSubmit, isLoading, defaultValues, clients =
             finalAmount: total,
             clientId: data.clientId || undefined,
             sellerEmployeeId: data.sellerEmployeeId || undefined,
-            dateTime: data.dateTime,
+            dateTime: finalDateTime,
             comment: data.comment,
         };
         onSubmit(dto);
@@ -118,36 +135,28 @@ export default function SaleForm({ onSubmit, isLoading, defaultValues, clients =
 
     return (
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6 bg-white p-8 rounded-lg shadow-xl">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-1">
                     <label className="block text-sm font-medium text-gray-700">Fecha</label>
                     <input type="date" {...register('dateTime')} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm" />
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Vendedor</label>
-                    <select {...register('sellerEmployeeId')} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm">
-                        <option value="">Seleccione...</option>
-                        {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                    </select>
+                <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Cliente</label>
+                    <Controller
+                        name="clientId"
+                        control={control}
+                        render={({ field }) => (
+                            <Select
+                                options={clients.map(c => ({ value: c.id, label: c.name || c.phoneNumber }))}
+                                onChange={opt => field.onChange(opt ? opt.value : '')}
+                                value={clients.find(c => c.id === field.value) ? { value: field.value, label: clients.find(c => c.id === field.value)?.name || clients.find(c => c.id === field.value)?.phoneNumber } : null}
+                                placeholder="Buscar cliente..."
+                                isClearable
+                                className="mt-1"
+                            />
+                        )}
+                    />
                 </div>
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium text-gray-700">Cliente</label>
-                <Controller
-                    name="clientId"
-                    control={control}
-                    render={({ field }) => (
-                        <Select
-                            options={clients.map(c => ({ value: c.id, label: c.name || c.phoneNumber }))}
-                            onChange={opt => field.onChange(opt ? opt.value : '')}
-                            value={clients.find(c => c.id === field.value) ? { value: field.value, label: clients.find(c => c.id === field.value)?.name || clients.find(c => c.id === field.value)?.phoneNumber } : null}
-                            placeholder="Buscar cliente..."
-                            isClearable
-                            className="mt-1"
-                        />
-                    )}
-                />
             </div>
 
             <div className="space-y-4">
@@ -163,20 +172,33 @@ export default function SaleForm({ onSubmit, isLoading, defaultValues, clients =
                             <Controller
                                 name={`items.${index}.productId`}
                                 control={control}
-                                render={({ field }) => (
-                                    <Select
-                                        options={products.map(p => ({ value: p.id, label: `${p.productName} ($${p.sellingPrice})`, price: p.sellingPrice }))}
-                                        onChange={(opt: any) => {
-                                            field.onChange(opt ? opt.value : '');
-                                            if (opt) {
-                                                setValue(`items.${index}.price`, opt.price || 0);
-                                            }
-                                        }}
-                                        value={products.find(p => p.id === field.value) ? { value: field.value, label: products.find(p => p.id === field.value)?.productName } : null}
-                                        placeholder="Seleccionar..."
-                                        className="mt-1"
-                                    />
-                                )}
+                                render={({ field }) => {
+                                    const selectedProduct = products.find(p => p.id === field.value);
+                                    return (
+                                        <div className="relative">
+                                            <Select
+                                                options={products.map(p => ({ value: p.id, label: `${p.productName} ($${p.sellingPrice})`, price: p.sellingPrice }))}
+                                                onChange={(opt: any) => {
+                                                    field.onChange(opt ? opt.value : '');
+                                                    if (opt) {
+                                                        setValue(`items.${index}.price`, opt.price || 0);
+                                                    }
+                                                }}
+                                                value={selectedProduct ? { value: field.value, label: selectedProduct.productName } : null}
+                                                placeholder="Seleccionar..."
+                                                className="mt-1"
+                                            />
+                                            {selectedProduct && (
+                                                <div className="absolute -top-4 right-0 flex items-center gap-1">
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Stock:</span>
+                                                    <span className={`text-[10px] font-extrabold ${(selectedProduct.currentStock || 0) <= 5 ? 'text-red-500' : 'text-green-600'}`}>
+                                                        {selectedProduct.currentStock ?? 'N/D'}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }}
                             />
                         </div>
                         <div className="w-24">
@@ -315,9 +337,38 @@ export default function SaleForm({ onSubmit, isLoading, defaultValues, clients =
                 )}
             </div>
 
-            <div>
-                <label className="block text-sm font-medium text-gray-700">Comentarios</label>
-                <textarea {...register('comment')} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm h-24" />
+            <div className="pt-4 border-t border-gray-100">
+                <button
+                    type="button"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="text-xs font-semibold text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors uppercase tracking-wider"
+                >
+                    {showAdvanced ? '− Ver menos' : '+ Añadir Vendedor o Comentarios'}
+                </button>
+
+                {showAdvanced && (
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="md:col-span-1">
+                            <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-tight">Vendedor</label>
+                            <select
+                                {...register('sellerEmployeeId')}
+                                className="block w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-sm focus:ring-pink-500 focus:border-pink-500 transition-all"
+                            >
+                                <option value="">No especificado</option>
+                                {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                            </select>
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-tight">Comentarios</label>
+                            <textarea
+                                {...register('comment')}
+                                rows={2}
+                                className="block w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-sm focus:ring-pink-500 focus:border-pink-500 resize-none transition-all placeholder:text-gray-300"
+                                placeholder="Notas adicionales sobre la venta..."
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="flex justify-end space-x-4">

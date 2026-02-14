@@ -15,7 +15,23 @@ const naDisplay = <span className="text-gray-400">N/D</span>;
 const formatDateTime = (isoString?: string) => {
   if (!isoString) return 'N/D';
   try {
-    return new Date(isoString).toLocaleString('es-ES', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    // If it's a pure date string (YYYY-MM-DD), treat it as local date
+    if (isoString.length === 10 && isoString.includes('-')) {
+      const [year, month, day] = isoString.split('-').map(Number);
+      return new Date(year, month - 1, day).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+    // Otherwise, parse as full ISO and convert to local locale string
+    return new Date(isoString).toLocaleString('es-ES', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   } catch (e) { return 'Fecha Inválida'; }
 };
 

@@ -466,33 +466,11 @@ export default function AnalyticsPage() {
                   return row;
                 });
 
-                // Month colors
-                const monthColors = ['#ec4899', '#8b5cf6', '#3b82f6'];
-
                 return (
                   <div className="bg-white rounded-lg shadow-md p-6">
                     <h2 className="text-xl font-semibold text-gray-900 mb-4">
                       Desglose de Tiempo por Servicio - {selectedEmployee} (Últimos 3 Meses)
                     </h2>
-                    <div className="mb-6">
-                      <ResponsiveContainer width="100%" height={400}>
-                        <BarChart data={chartData} layout="vertical">
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis type="number" label={{ value: 'Minutos', position: 'insideBottom', offset: -5 }} />
-                          <YAxis dataKey="service" type="category" width={180} tick={{ fontSize: 11 }} />
-                          <Tooltip formatter={(value: number) => [`${value} min`, '']} />
-                          <Legend />
-                          {months.map((month, idx) => (
-                            <Bar
-                              key={month}
-                              dataKey={month}
-                              fill={monthColors[idx]}
-                              name={month}
-                            />
-                          ))}
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
