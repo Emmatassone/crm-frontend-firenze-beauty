@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
@@ -21,6 +21,7 @@ import {
     Service
 } from '@/lib/api';
 import { useAuthStore } from '@/lib/store/auth';
+import { useCalendarSSE } from '@/lib/useCalendarSSE';
 import TimePickerAMPM from '@/components/TimePickerAMPM';
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -137,6 +138,17 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             fetchData();
         }
     }, [token, isTokenValid]);
+
+    // Real-time sync: refetch only appointment schedules when other clients make changes
+    const refreshEvents = useCallback(async () => {
+        try {
+            const eventsData = await getAppointmentSchedules();
+            setEvents(eventsData || []);
+        } catch (error) {
+            console.error('SSE: failed to refresh events', error);
+        }
+    }, []);
+    useCalendarSSE(refreshEvents);
 
     const fetchData = async () => {
         try {
