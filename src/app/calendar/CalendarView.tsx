@@ -138,7 +138,8 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         }
     }, [token, isTokenValid]);
 
-    // Poll for schedule changes every 15 seconds so other computers see updates quickly
+    // Poll interval by user level: levels 4-6 (appointment managers) every 15s, levels 1-3 once a day
+    const pollInterval = isLevel123 ? 86_400_000 : 15_000;
     const eventsRef = useRef(events);
     eventsRef.current = events;
     useEffect(() => {
@@ -153,9 +154,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             } catch (err) {
                 console.error('Polling: failed to refresh schedules', err);
             }
-        }, 15_000);
+        }, pollInterval);
         return () => clearInterval(interval);
-    }, [token]);
+    }, [token, pollInterval]);
 
     const fetchData = async () => {
         try {
