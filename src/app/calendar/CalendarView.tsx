@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
@@ -21,7 +21,6 @@ import {
     Service
 } from '@/lib/api';
 import { useAuthStore } from '@/lib/store/auth';
-import { useCalendarSSE } from '@/lib/useCalendarSSE';
 import TimePickerAMPM from '@/components/TimePickerAMPM';
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -139,16 +138,24 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         }
     }, [token, isTokenValid]);
 
-    // Real-time sync: refetch only appointment schedules when other clients make changes
-    const refreshEvents = useCallback(async () => {
-        try {
-            const eventsData = await getAppointmentSchedules();
-            setEvents(eventsData || []);
-        } catch (error) {
-            console.error('SSE: failed to refresh events', error);
-        }
-    }, []);
-    useCalendarSSE(refreshEvents);
+    // Poll for schedule changes every 15 seconds so other computers see updates quickly
+    const eventsRef = useRef(events);
+    eventsRef.current = events;
+    useEffect(() => {
+        if (!token || !isTokenValid()) return;
+        const interval = setInterval(async () => {
+            try {
+                const fresh = await getAppointmentSchedules();
+                // Only update state if the data actually changed (avoids unnecessary re-renders)
+                if (JSON.stringify(fresh) !== JSON.stringify(eventsRef.current)) {
+                    setEvents(fresh || []);
+                }
+            } catch (err) {
+                console.error('Polling: failed to refresh schedules', err);
+            }
+        }, 15_000);
+        return () => clearInterval(interval);
+    }, [token]);
 
     const fetchData = async () => {
         try {
