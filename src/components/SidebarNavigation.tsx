@@ -17,7 +17,10 @@ import {
     BsChevronLeft,
     BsChevronRight,
     BsPersonBadge,
-    BsGear
+    BsGear,
+    BsCurrencyDollar,
+    BsPersonLinesFill,
+    BsPeopleFill
 } from 'react-icons/bs';
 
 export default function SidebarNavigation() {
@@ -122,7 +125,12 @@ export default function SidebarNavigation() {
                     {store.canAccessAnalytics && (
                         <>
                             <div className={`mx-4 my-3 border-b border-gray-100 ${isCollapsed ? 'mx-2' : ''}`}></div>
-                            <NavItem href="/analytics" label="Analíticas" icon={BsGraphUp} />
+                            {!isCollapsed && (
+                                <p className="px-4 mb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Analíticas</p>
+                            )}
+                            <NavItem href="/analytics/finance" label="Finanzas" icon={BsCurrencyDollar} />
+                            <NavItem href="/analytics/employees" label="Profesionales" icon={BsPersonLinesFill} />
+                            <NavItem href="/analytics/clients" label="Clientes" icon={BsPeopleFill} />
                         </>
                     )}
                 </div>
