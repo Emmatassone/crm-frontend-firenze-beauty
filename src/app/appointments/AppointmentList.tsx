@@ -48,7 +48,9 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
         clientIdentifier.toLowerCase().includes(lowerCaseSearchTerm) ||
         formattedDate.includes(lowerCaseSearchTerm) || // Search in formatted date
         servicesText.toLowerCase().includes(lowerCaseSearchTerm) || // Also allow search by service
-        appt.attendedEmployee.toLowerCase().includes(lowerCaseSearchTerm) // And by employee
+        appt.attendedEmployee.toLowerCase().includes(lowerCaseSearchTerm) || // And by employee
+        (appt.arrivalTime || '').includes(lowerCaseSearchTerm) || // And by start time
+        (appt.leaveTime || '').includes(lowerCaseSearchTerm) // And by end time
       );
     });
   }, [searchTerm, initialAppointments, isLevel123, name]);
@@ -58,7 +60,7 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
       <div className="mb-4">
         <input
           type="text"
-          placeholder="Buscar por cliente, fecha, servicio, profesional..."
+          placeholder="Buscar por cliente, fecha, horario, servicio, profesional..."
           className="mt-1 block w-full md:w-1/2 lg:w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -84,6 +86,8 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
                   <th scope="col" className={thStyle}>Cliente</th>
                   <th scope="col" className={thStyle}>Servicio</th>
                   <th scope="col" className={thStyle}>Fecha</th>
+                  <th scope="col" className={thStyle}>Inicio</th>
+                  <th scope="col" className={thStyle}>Fin</th>
                   <th scope="col" className={thStyle}>Profesional</th>
                   <th scope="col" className={thStyle}>Acciones</th>
                 </tr>
@@ -98,6 +102,8 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
                     <td className={tdStyle}>{appt.clientName || appt.client?.name || appt.client?.phoneNumber || 'N/D'}</td>
                     <td className={tdStyle}>{Array.isArray(appt.serviceConsumed) ? appt.serviceConsumed.join(', ') : appt.serviceConsumed}</td>
                     <td className={tdStyle}>{formatDateTime(appt.appointmentDate)}</td>
+                    <td className={tdStyle}>{appt.arrivalTime || 'N/D'}</td>
+                    <td className={tdStyle}>{appt.leaveTime || 'N/D'}</td>
                     <td className={tdStyle}>{appt.attendedEmployee}</td>
                     <td className={`${tdStyle} text-right`}>
                       {!isLevel123 && (
