@@ -511,6 +511,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             await updateAppointmentSchedule(selectedEventForAction.id, {
                 status: 'canceled'
             });
+            // Immediately mark as canceled in local state so slot is freed
+            const canceledId = selectedEventForAction.id;
+            setEvents(prev => prev.map(e => e.id === canceledId ? { ...e, status: 'canceled' } : e));
             setIsActionModalOpen(false);
             fetchData();
             showSuccess('Turno marcado como ausencia (cancelado)');
@@ -530,6 +533,8 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         if (!eventToDelete) return;
         try {
             await deleteAppointmentSchedule(eventToDelete);
+            // Immediately remove from local state so the slot is freed for new bookings
+            setEvents(prev => prev.filter(e => e.id !== eventToDelete));
             setIsDeleteConfirmOpen(false);
             setIsActionModalOpen(false);
             setIsModalOpen(false);
@@ -557,15 +562,18 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             finalData.end = endISO;
 
             if (editingEvent) {
-                await updateAppointmentSchedule(editingEvent.id, finalData);
+                const updated = await updateAppointmentSchedule(editingEvent.id, finalData);
+                // Immediately sync local state so stale events don't cause false conflict checks
+                setEvents(prev => prev.map(e => e.id === editingEvent.id ? updated : e));
             } else {
-                await createAppointmentSchedule(finalData);
+                const created = await createAppointmentSchedule(finalData);
+                setEvents(prev => [...prev, created]);
             }
             setIsModalOpen(false);
             setIsLongDurationConfirmOpen(false);
             setPendingSaveData(null);
             onClearClient();
-            fetchData();
+            fetchData(); // Background refresh for full sync
         } catch (error) {
             console.error('Error saving event', error);
             alert('Error al guardar el evento');
