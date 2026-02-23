@@ -88,45 +88,46 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
       )}
 
       {filteredAppointments.length > 0 && (
-        <div className="shadow-xl rounded-lg">
-          <div className="overflow-x-auto sticky top-0 z-10 h-0">
-            <div className="h-4"></div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 bg-white">
-              <thead className="bg-gray-50">
+        <div className="shadow-xl rounded-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-auto max-h-[calc(100vh-320px)] min-h-[400px]">
+            <table className="min-w-full divide-y divide-gray-200 bg-white border-separate border-spacing-0">
+              <thead className="bg-gray-50 sticky top-0 z-20">
                 <tr>
-                  <th scope="col" className={thStyle}>Cliente</th>
-                  <th scope="col" className={thStyle}>Servicio</th>
-                  <th scope="col" className={thStyle}>Fecha</th>
-                  <th scope="col" className={thStyle}>Inicio</th>
-                  <th scope="col" className={thStyle}>Fin</th>
-                  <th scope="col" className={thStyle}>Profesional</th>
-                  <th scope="col" className={thStyle}>Acciones</th>
+                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200`}>Cliente</th>
+                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200`}>Servicio</th>
+                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200`}>Fecha</th>
+                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200`}>Inicio</th>
+                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200`}>Fin</th>
+                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200`}>Profesional</th>
+                  <th scope="col" className={`${thStyle} sticky top-0 right-0 bg-gray-50 border-b border-l border-gray-200 z-30 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]`}>Acciones</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredAppointments.map((appt, index) => (
-                  <tr
-                    key={appt.id}
-                    className={`hover:bg-pink-50 transition ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                      }`}
-                  >
-                    <td className={tdStyle}>{appt.clientName || appt.client?.name || appt.client?.phoneNumber || 'N/D'}</td>
-                    <td className={tdStyle}>{Array.isArray(appt.serviceConsumed) ? appt.serviceConsumed.join(', ') : appt.serviceConsumed}</td>
-                    <td className={tdStyle}>{formatDateTime(appt.appointmentDate)}</td>
-                    <td className={tdStyle}>{appt.arrivalTime || 'N/D'}</td>
-                    <td className={tdStyle}>{appt.leaveTime || 'N/D'}</td>
-                    <td className={tdStyle}>{appt.attendedEmployee}</td>
-                    <td className={`${tdStyle} text-right`}>
-                      {!isLevel123 && (
-                        <Link href={`/appointments/${appt.id}`} className="text-pink-600 hover:text-pink-800 font-medium">
-                          Ver Detalles
-                        </Link>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {filteredAppointments.map((appt, index) => {
+                  const isEven = index % 2 === 0;
+                  const rowBg = isEven ? 'bg-white' : 'bg-gray-50';
+
+                  return (
+                    <tr
+                      key={appt.id}
+                      className={`hover:bg-pink-50 group transition ${rowBg}`}
+                    >
+                      <td className={tdStyle}>{appt.clientName || appt.client?.name || appt.client?.phoneNumber || 'N/D'}</td>
+                      <td className={tdStyle}>{Array.isArray(appt.serviceConsumed) ? appt.serviceConsumed.join(', ') : appt.serviceConsumed}</td>
+                      <td className={tdStyle}>{formatDateTime(appt.appointmentDate)}</td>
+                      <td className={tdStyle}>{appt.arrivalTime || 'N/D'}</td>
+                      <td className={tdStyle}>{appt.leaveTime || 'N/D'}</td>
+                      <td className={tdStyle}>{appt.attendedEmployee}</td>
+                      <td className={`${tdStyle} text-right sticky right-0 border-l border-gray-200 z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)] ${rowBg} group-hover:bg-pink-50`}>
+                        {!isLevel123 && (
+                          <Link href={`/appointments/${appt.id}`} className="text-pink-600 hover:text-pink-800 font-medium">
+                            Ver Detalles
+                          </Link>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
