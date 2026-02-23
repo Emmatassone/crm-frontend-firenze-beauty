@@ -29,18 +29,8 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
   const isLevel123 = level === '1' || level === '2' || level === '3';
 
   const filteredAppointments = useMemo(() => {
-    let filtered = initialAppointments;
-
-    // Filter by employee if level 1, 2, or 3
-    if (isLevel123 && name) {
-      filtered = filtered.filter(appt =>
-        appt.attendedEmployee.toLowerCase().includes(name.toLowerCase())
-      );
-    }
-
-    if (!searchTerm) return filtered;
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
-    return filtered.filter(appt => {
+    const filtered = searchTerm ? initialAppointments.filter(appt => {
       const clientIdentifier = appt.clientName || appt.client?.name || appt.client?.phoneNumber || '';
       const formattedDate = formatDateTime(appt.appointmentDate).toLowerCase();
       const servicesText = Array.isArray(appt.serviceConsumed) ? appt.serviceConsumed.join(', ') : (appt.serviceConsumed || '');
@@ -52,6 +42,29 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
         (appt.arrivalTime || '').includes(lowerCaseSearchTerm) || // And by start time
         (appt.leaveTime || '').includes(lowerCaseSearchTerm) // And by end time
       );
+    }) : initialAppointments;
+
+    // Filter by employee if level 1, 2, or 3
+    let results = filtered;
+    if (isLevel123 && name) {
+      results = results.filter(appt =>
+        appt.attendedEmployee.toLowerCase().includes(name.toLowerCase())
+      );
+    }
+
+    // Sort by date (descending) and then arrival time (descending)
+    return [...results].sort((a, b) => {
+      const dateA = new Date(a.appointmentDate).getTime();
+      const dateB = new Date(b.appointmentDate).getTime();
+
+      if (dateB !== dateA) {
+        return dateB - dateA; // Descending date
+      }
+
+      // If same date, compare arrivalTime (descending)
+      const timeA = a.arrivalTime || '00:00';
+      const timeB = b.arrivalTime || '00:00';
+      return timeB.localeCompare(timeA);
     });
   }, [searchTerm, initialAppointments, isLevel123, name]);
 
