@@ -18,6 +18,8 @@ const CATEGORIES = [
     'Cabello',
     'Maquillajes',
     'Servicios Públicos',
+    'Mantenimiento',
+    'Inversión',
     'Otros',
 ];
 
