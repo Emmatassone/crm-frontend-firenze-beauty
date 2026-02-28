@@ -19,7 +19,11 @@ const CATEGORIES = [
     'Maquillajes',
     'Servicios Públicos',
     'Mantenimiento',
-    'Inversión',
+    'Inversion Externa',
+    'Inversion Interna',
+    'Marketing',
+    'Alquiler',
+    'Cosmetología',
     'Otros',
 ];
 
