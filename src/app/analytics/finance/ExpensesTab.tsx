@@ -61,6 +61,11 @@ export default function ExpensesTab({ monthlyExpensesFromAnalytics, formatCurren
     const [parsedItems, setParsedItems] = useState<(ParsedExpenseItem & { date: string })[] | null>(null);
     const [savingBatch, setSavingBatch] = useState(false);
 
+    // Camera
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+
     const loadExpenses = useCallback(async () => {
         try {
             setLoading(true);
@@ -120,6 +125,71 @@ export default function ExpensesTab({ monthlyExpensesFromAnalytics, formatCurren
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
+
+    const startCamera = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment' }
+            });
+            setMediaStream(stream);
+            setIsCameraOpen(true);
+            // using a short timeout to let the video element render
+            setTimeout(() => {
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+            }, 100);
+        } catch (err) {
+            alert('No se pudo acceder a la cámara. Revisa los permisos: ' + String(err));
+        }
+    };
+
+    const stopCamera = useCallback(() => {
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+            setMediaStream(null);
+        }
+        setIsCameraOpen(false);
+    }, [mediaStream]);
+
+    const capturePhoto = async () => {
+        if (videoRef.current) {
+            const canvas = document.createElement('canvas');
+            canvas.width = videoRef.current.videoWidth;
+            canvas.height = videoRef.current.videoHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(videoRef.current, 0, 0);
+                canvas.toBlob(async (blob) => {
+                    if (blob) {
+                        const file = new File([blob], "camera_capture.jpg", { type: "image/jpeg" });
+
+                        stopCamera();
+
+                        setParsing(true);
+                        setParsedItems(null);
+                        try {
+                            const items = await parseReceipt(file);
+                            setParsedItems(items.map(i => ({ ...i, date: getTodayDate() })));
+                        } catch (err) {
+                            alert(err instanceof Error ? err.message : 'Error al analizar el ticket');
+                        } finally {
+                            setParsing(false);
+                        }
+                    }
+                }, 'image/jpeg');
+            }
+        }
+    };
+
+    // Cleanup camera when unmounting
+    useEffect(() => {
+        return () => {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, [mediaStream]);
 
     const updateParsedItem = (index: number, field: string, value: string | number) => {
         setParsedItems(prev => {
@@ -265,7 +335,7 @@ export default function ExpensesTab({ monthlyExpensesFromAnalytics, formatCurren
 
                 <div className="border-t pt-4">
                     <h3 className="text-md font-semibold text-gray-800 mb-3">O sube una foto del ticket</h3>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                         <input
                             ref={fileInputRef}
                             type="file"
@@ -273,6 +343,17 @@ export default function ExpensesTab({ monthlyExpensesFromAnalytics, formatCurren
                             onChange={handleFileChange}
                             className="block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100"
                         />
+                        <button
+                            type="button"
+                            onClick={startCamera}
+                            className="flex items-center gap-2 bg-pink-100 text-pink-700 hover:bg-pink-200 py-2 px-4 rounded-md text-sm font-medium transition-colors"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            Tomar foto
+                        </button>
                         {parsing && (
                             <div className="flex items-center gap-2 text-sm text-gray-500">
                                 <div className="animate-spin h-4 w-4 border-2 border-pink-600 border-t-transparent rounded-full" />
@@ -282,6 +363,41 @@ export default function ExpensesTab({ monthlyExpensesFromAnalytics, formatCurren
                     </div>
                 </div>
             </div>
+
+            {/* Camera Overlay Modal */}
+            {isCameraOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 p-4">
+                    <div className="bg-white rounded-lg p-4 w-full max-w-lg">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold">Cámara</h3>
+                            <button onClick={stopCamera} className="text-gray-500 hover:text-gray-700">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="relative bg-black rounded-lg overflow-hidden aspect-[3/4] flex items-center justify-center">
+                            <video
+                                ref={videoRef}
+                                autoPlay
+                                playsInline
+                                className="w-full h-full object-cover"
+                            ></video>
+                        </div>
+                        <div className="mt-4 flex justify-center">
+                            <button
+                                onClick={capturePhoto}
+                                className="bg-pink-600 hover:bg-pink-700 text-white rounded-full p-4 shadow-lg focus:outline-none focus:ring-4 focus:ring-pink-300 transition-transform active:scale-95"
+                            >
+                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Gemini preview section */}
             {parsedItems && (
