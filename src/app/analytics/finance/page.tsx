@@ -27,6 +27,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Pestañas y Cejas': '#f59e0b', // amber
   'Peluqueria': '#06b6d4',       // cyan
   'Maquillaje': '#f43f5e',       // rose
+  'Inversion Externa': '#6366f1', // indigo
+  'Inversion Interna': '#10b981', // emerald
 };
 const FALLBACK_COLORS = ['#6366f1', '#14b8a6', '#e879f9', '#fb923c', '#a3e635', '#38bdf8', '#c084fc', '#fbbf24'];
 
@@ -63,14 +65,17 @@ export default function FinanceAnalyticsPage() {
     }
   };
 
-  // Process financeData to extract category revenue into flat keys for LineChart
-  const { chartData, categories } = useMemo(() => {
+  // Process financeData to extract category revenue and expense into flat keys for charts
+  const { chartData, categories, expenseCategories } = useMemo(() => {
     const allCategories = new Set<string>();
+    const allExpenseCategories = new Set<string>();
 
     const processed = [...financeData].reverse().map(item => {
       const row: any = {
         ...item,
         net_service_revenue: Number(item.appointment_revenue || 0) - Number(item.total_salary_expenses || 0),
+        net_revenue: Number(item.total_revenue || 0) - Number(item.monthly_expenses || 0) - Number(item.total_salary_expenses || 0),
+        monthly_expenses: Number(item.monthly_expenses || 0),
       };
 
       // Parse revenue_by_category — could be a JSON string or already an array
@@ -94,10 +99,49 @@ export default function FinanceAnalyticsPage() {
         }
       }
 
+      // Parse expenses_by_category
+      let expenseCategoryArray: { category: string; expense: number }[] = [];
+      if (item.expenses_by_category) {
+        if (typeof item.expenses_by_category === 'string') {
+          try {
+            expenseCategoryArray = JSON.parse(item.expenses_by_category);
+          } catch { /* ignore parse errors */ }
+        } else if (Array.isArray(item.expenses_by_category)) {
+          expenseCategoryArray = item.expenses_by_category;
+        }
+      }
+
+      // Flatten each expense category into a unique key
+      for (const entry of expenseCategoryArray) {
+        if (entry.category && entry.expense != null) {
+          const val = Number(entry.expense);
+          const key = `exp_cat_${entry.category}`;
+
+          // Logic for separating/duplicating investment categories
+          if (entry.category === 'Inversion Externa') {
+            row['inv_externa'] = val;
+          } else if (entry.category === 'Inversion Interna') {
+            row['inv_interna'] = val;
+
+            // Also include in operating expenses chart
+            row[key] = val;
+            allExpenseCategories.add(entry.category);
+          } else {
+            // All other operating expenses
+            row[key] = val;
+            allExpenseCategories.add(entry.category);
+          }
+        }
+      }
+
       return row;
     });
 
-    return { chartData: processed, categories: Array.from(allCategories) };
+    return {
+      chartData: processed,
+      categories: Array.from(allCategories),
+      expenseCategories: Array.from(allExpenseCategories)
+    };
   }, [financeData]);
 
   // Assign a color to each category
@@ -146,21 +190,19 @@ export default function FinanceAnalyticsPage() {
       <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg mb-8 max-w-xs">
         <button
           onClick={() => setActiveTab('ingresos')}
-          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-            activeTab === 'ingresos'
-              ? 'bg-white text-pink-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-800'
-          }`}
+          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'ingresos'
+            ? 'bg-white text-pink-600 shadow-sm'
+            : 'text-gray-600 hover:text-gray-800'
+            }`}
         >
           Ingresos
         </button>
         <button
           onClick={() => setActiveTab('gastos')}
-          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-            activeTab === 'gastos'
-              ? 'bg-white text-pink-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-800'
-          }`}
+          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'gastos'
+            ? 'bg-white text-pink-600 shadow-sm'
+            : 'text-gray-600 hover:text-gray-800'
+            }`}
         >
           Gastos
         </button>
@@ -194,8 +236,10 @@ export default function FinanceAnalyticsPage() {
                   <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
                   <Tooltip formatter={(value: number, name: string) => [formatCurrency(value), name]} />
                   <Legend />
+                  <Line type="monotone" dataKey="total_revenue" name="Ingresos Totales" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 4 }} />
                   <Line type="monotone" dataKey="appointment_revenue" name="Ingresos por Servicios" stroke="#ec4899" strokeWidth={2} dot={{ r: 4 }} />
-                  <Line type="monotone" dataKey="net_service_revenue" name="Ingresos Netos" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
+                  <Line type="monotone" dataKey="net_revenue" name="Ingresos Netos" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
+                  <Line type="monotone" dataKey="monthly_expenses" name="Gastos Mensuales" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} strokeDasharray="5 5" />
                   <Line type="monotone" dataKey="total_salary_expenses" name="Gastos de Salarios" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} strokeDasharray="5 5" />
                 </LineChart>
               </ResponsiveContainer>
@@ -204,27 +248,88 @@ export default function FinanceAnalyticsPage() {
 
           {/* Tendencias de Ingresos y Gastos — stacked bar by category */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Tendencias de Ingresos y Gastos</h2>
-            <div className="h-[500px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(value: number, name: string) => [formatCurrency(value), name]} />
-                  <Legend />
-                  {categories.map((cat, idx) => (
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Tendencias de Ingresos y Gastos</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              {/* Ingresos por Categoría */}
+              <div>
+                <h3 className="text-lg font-medium text-gray-700 mb-4 text-center">Ingresos por Área</h3>
+                <div className="h-[350px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
+                      <Tooltip formatter={(value: number, name: string) => [formatCurrency(value), name]} />
+                      <Legend />
+                      {categories.map((cat, idx) => (
+                        <Bar
+                          key={cat}
+                          dataKey={`cat_${cat}`}
+                          name={cat}
+                          stackId="revenue"
+                          fill={getCategoryColor(cat, idx)}
+                          radius={idx === categories.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                        />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Gastos por Categoría (Excluyendo Inversión Externa) */}
+              <div>
+                <h3 className="text-lg font-medium text-gray-700 mb-4 text-center">Gastos Operativos por Categoría</h3>
+                <div className="h-[350px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
+                      <Tooltip formatter={(value: number, name: string) => [formatCurrency(value), name]} />
+                      <Legend />
+                      {expenseCategories.map((cat, idx) => (
+                        <Bar
+                          key={cat}
+                          dataKey={`exp_cat_${cat}`}
+                          name={cat}
+                          stackId="expense"
+                          fill={getCategoryColor(cat, idx + categories.length + 3)}
+                          radius={idx === expenseCategories.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                        />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            {/* Gráfico de Inversiones (Externa e Interna) */}
+            <div className="pt-8 border-t border-gray-100">
+              <h3 className="text-lg font-medium text-gray-700 mb-4 text-center">Inversiones (Externa + Interna)</h3>
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(value: number, name: string) => [formatCurrency(value), name]} />
+                    <Legend />
                     <Bar
-                      key={cat}
-                      dataKey={`cat_${cat}`}
-                      name={cat}
-                      stackId="revenue"
-                      fill={getCategoryColor(cat, idx)}
-                      radius={idx === categories.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                      dataKey="inv_interna"
+                      name="Inversión Interna"
+                      fill={CATEGORY_COLORS['Inversion Interna']}
+                      stackId="investment"
                     />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
+                    <Bar
+                      dataKey="inv_externa"
+                      name="Inversión Externa"
+                      fill={CATEGORY_COLORS['Inversion Externa']}
+                      stackId="investment"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 

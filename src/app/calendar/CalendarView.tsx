@@ -22,6 +22,7 @@ import {
 } from '@/lib/api';
 import { useAuthStore } from '@/lib/store/auth';
 import TimePickerAMPM from '@/components/TimePickerAMPM';
+import AvailabilityModal from './AvailabilityModal';
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MONTHS = [
@@ -71,6 +72,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [expandedDay, setExpandedDay] = useState<number | null>(null);
     const [isWeekView, setIsWeekView] = useState(false); // Week view for mobile
     const [expandedEventId, setExpandedEventId] = useState<string | null>(null); // For tap-to-expand on mobile
+    const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -381,6 +383,17 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const handleDayClick = (day: number) => {
         const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
 
+        const isHoliday = events.some(e => {
+            if (e.status !== 'unavailable' || e.employeeId || !e.isAllDay) return false;
+            const eStart = new Date(e.start);
+            return eStart.getDate() === clickedDate.getDate() && eStart.getMonth() === clickedDate.getMonth() && eStart.getFullYear() === clickedDate.getFullYear();
+        });
+
+        if (isHoliday) {
+            alert('No se pueden agendar turnos en un día cerrado o feriado. Los administradores pueden desbloquearlo.');
+            return;
+        }
+
         const prefill: Partial<CreateAppointmentScheduleDto> = {};
         if (selectedClient) {
             prefill.clientName = selectedClient.name;
@@ -393,6 +406,17 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const handleDrop = (e: React.DragEvent, day: number) => {
         e.preventDefault();
         const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+
+        const isHoliday = events.some(ev => {
+            if (ev.status !== 'unavailable' || ev.employeeId || !ev.isAllDay) return false;
+            const eStart = new Date(ev.start);
+            return eStart.getDate() === clickedDate.getDate() && eStart.getMonth() === clickedDate.getMonth() && eStart.getFullYear() === clickedDate.getFullYear();
+        });
+
+        if (isHoliday) {
+            alert('No se pueden programar turnos en un día cerrado o feriado.');
+            return;
+        }
 
         try {
             const rawData = e.dataTransfer.getData('application/json');
@@ -703,6 +727,38 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         setIsDeleteConfirmOpen(true);
     };
 
+    const handleToggleHoliday = async (e: React.MouseEvent, date: Date, globalEventId?: string) => {
+        e.stopPropagation();
+        if (level !== '6') return;
+
+        try {
+            if (globalEventId) {
+                await deleteAppointmentSchedule(globalEventId);
+                setEvents(prev => prev.filter(ev => ev.id !== globalEventId));
+                showSuccess('Día habilitado nuevamente');
+                fetchData();
+            } else {
+                const start = new Date(date);
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(date);
+                end.setHours(23, 59, 0, 0);
+
+                const created = await createAppointmentSchedule({
+                    title: 'DÍA CERRADO / FERIADO',
+                    start: start.toISOString(),
+                    end: end.toISOString(),
+                    isAllDay: true,
+                    status: 'unavailable'
+                });
+                setEvents(prev => [...prev, created]);
+                showSuccess('Día bloqueado (feriado)');
+            }
+        } catch (error) {
+            console.error('Error toggling holiday', error);
+            alert('Error al modificar el estado del día');
+        }
+    };
+
     const serviceOptions = useMemo(() => {
         if (!formData.employeeId) {
             return availableServices.map(s => ({ value: s.id, label: s.name }));
@@ -867,12 +923,17 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             }
         }
 
+        // Check if there is a global unavailable event
+        const globalUnavailableEvent = dayEvents.find(e => e.status === 'unavailable' && !e.employeeId && e.isAllDay);
+        const isHoliday = !!globalUnavailableEvent;
+
         days.push(
             <div
                 key={`${date.getTime()}-${day}`}
                 onClick={(e) => {
                     if (!(e.target as HTMLElement).closest('[data-event-item]') &&
-                        !(e.target as HTMLElement).closest('[data-expand-btn]')) {
+                        !(e.target as HTMLElement).closest('[data-expand-btn]') &&
+                        !(e.target as HTMLElement).closest('[data-holiday-btn]')) {
                         setExpandedDay(null);
                         setExpandedEventId(null);
                         handleDayClick(day);
@@ -880,22 +941,44 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 }}
                 onDrop={(e) => handleDrop(e, day)}
                 onDragOver={handleDragOver}
-                className={`min-h-[120px] md:h-32 border border-gray-200 p-1 md:p-2 cursor-pointer hover:bg-gray-100 active:bg-gray-200 transition-colors relative ${isToday ? 'bg-pink-50' : 'bg-white'} ${isExpanded ? 'overflow-visible z-[100]' : 'overflow-hidden hover:overflow-visible hover:z-[40]'}`}
+                className={`min-h-[120px] md:h-32 border border-gray-200 p-1 md:p-2 cursor-pointer transition-colors relative 
+                    ${isHoliday ? 'bg-gray-100/80 saturate-50' : isToday ? 'bg-pink-50 hover:bg-pink-100 active:bg-pink-200' : 'bg-white hover:bg-gray-50 active:bg-gray-100'} 
+                    ${isExpanded ? 'overflow-visible z-[100]' : 'overflow-hidden hover:overflow-visible hover:z-[40]'}`}
             >
                 <div className="flex justify-between items-start">
                     <div className="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-2">
-                        <span className={`text-xs md:text-sm font-semibold ${isToday ? 'text-pink-600' : 'text-gray-700'}`}>
+                        <span className={`text-xs md:text-sm font-semibold ${isHoliday ? 'text-gray-500' : isToday ? 'text-pink-600' : 'text-gray-700'}`}>
                             {/* Show full day name on mobile week view, just number on desktop/month view */}
                             <span className="md:hidden font-bold mr-1">{DAYS[date.getDay()]}</span>
                             {day}
                         </span>
                         <span className="hidden md:inline">{workHoursDisplay}</span>
                     </div>
-                    {dayEvents.length > 0 && (
-                        <span className="text-[8px] md:text-[9px] font-medium text-gray-400 bg-gray-100 px-1 md:px-1.5 py-0.5 rounded">
-                            {dayEvents.length}
-                        </span>
-                    )}
+                    <div className="flex items-center gap-1">
+                        {level === '6' && (
+                            <button
+                                data-holiday-btn="true"
+                                onClick={(e) => handleToggleHoliday(e, date, globalUnavailableEvent?.id)}
+                                className={`p-0.5 rounded transition-colors ${globalUnavailableEvent ? 'text-red-500 hover:text-red-700 hover:bg-red-50' : 'text-gray-300 hover:text-gray-600 hover:bg-gray-100'}`}
+                                title={globalUnavailableEvent ? 'Desbloquear Día' : 'Bloquear Día (Feriado)'}
+                            >
+                                {globalUnavailableEvent ? (
+                                    <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                    </svg>
+                                ) : (
+                                    <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                                    </svg>
+                                )}
+                            </button>
+                        )}
+                        {dayEvents.length > 0 && (
+                            <span className="text-[8px] md:text-[9px] font-medium text-gray-400 bg-gray-100 px-1 md:px-1.5 py-0.5 rounded">
+                                {dayEvents.length}
+                            </span>
+                        )}
+                    </div>
                 </div>
                 <div className="mt-1 space-y-1">
                     {visibleEvents.map(event => {
@@ -1182,6 +1265,18 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                             ▶
                         </button>
                     </div>
+
+                    {/* Check Availability Button */}
+                    <button
+                        onClick={() => setIsAvailabilityModalOpen(true)}
+                        className="flex items-center gap-1.5 md:gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-3 md:px-4 py-2 rounded-lg font-bold text-[10px] md:text-sm shadow-md shadow-purple-200 transition-all active:scale-95 uppercase tracking-wide md:normal-case md:tracking-normal whitespace-nowrap"
+                        title="Consultar Disponibilidad Global"
+                    >
+                        <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <span className="hidden xs:inline">Disponibilidad</span>
+                    </button>
                 </div>
             </div>
 
@@ -1702,6 +1797,23 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                     </div>
                 </div>
             )}
+
+            <AvailabilityModal
+                isOpen={isAvailabilityModalOpen}
+                onClose={() => setIsAvailabilityModalOpen(false)}
+                employees={availableEmployees}
+                events={events}
+                onSelectSlot={(employeeId, startIso, endIso) => {
+                    setIsAvailabilityModalOpen(false);
+                    const emp = availableEmployees.find(e => e.id === employeeId);
+                    const date = new Date(startIso);
+                    openModal(date, {
+                        employeeId,
+                        start: startIso,
+                        end: endIso
+                    });
+                }}
+            />
         </div>
     );
 }

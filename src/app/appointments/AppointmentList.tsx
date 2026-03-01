@@ -25,27 +25,77 @@ const formatDateTime = (isoString?: string) => {
 
 export default function AppointmentList({ initialAppointments }: AppointmentListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [clientFilter, setClientFilter] = useState('');
+  const [serviceFilter, setServiceFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [startTimeFilter, setStartTimeFilter] = useState('');
+  const [endTimeFilter, setEndTimeFilter] = useState('');
+  const [professionalFilter, setProfessionalFilter] = useState('');
   const { level, name } = useAuthStore();
   const isLevel123 = level === '1' || level === '2' || level === '3';
 
   const filteredAppointments = useMemo(() => {
-    const lowerCaseSearchTerm = searchTerm.toLowerCase();
-    const filtered = searchTerm ? initialAppointments.filter(appt => {
-      const clientIdentifier = appt.clientName || appt.client?.name || appt.client?.phoneNumber || '';
-      const formattedDate = formatDateTime(appt.appointmentDate).toLowerCase();
-      const servicesText = Array.isArray(appt.serviceConsumed) ? appt.serviceConsumed.join(', ') : (appt.serviceConsumed || '');
-      return (
-        clientIdentifier.toLowerCase().includes(lowerCaseSearchTerm) ||
-        formattedDate.includes(lowerCaseSearchTerm) || // Search in formatted date
-        servicesText.toLowerCase().includes(lowerCaseSearchTerm) || // Also allow search by service
-        appt.attendedEmployee.toLowerCase().includes(lowerCaseSearchTerm) || // And by employee
-        (appt.arrivalTime || '').includes(lowerCaseSearchTerm) || // And by start time
-        (appt.leaveTime || '').includes(lowerCaseSearchTerm) // And by end time
-      );
-    }) : initialAppointments;
+    let results = initialAppointments;
+
+    // Filter by general search term
+    if (searchTerm) {
+      const lowerCaseSearchTerm = searchTerm.toLowerCase();
+      results = results.filter(appt => {
+        const clientIdentifier = appt.clientName || appt.client?.name || appt.client?.phoneNumber || '';
+        const formattedDate = formatDateTime(appt.appointmentDate).toLowerCase();
+        const servicesText = Array.isArray(appt.serviceConsumed) ? appt.serviceConsumed.join(', ') : (appt.serviceConsumed || '');
+        return (
+          clientIdentifier.toLowerCase().includes(lowerCaseSearchTerm) ||
+          formattedDate.includes(lowerCaseSearchTerm) ||
+          servicesText.toLowerCase().includes(lowerCaseSearchTerm) ||
+          appt.attendedEmployee.toLowerCase().includes(lowerCaseSearchTerm) ||
+          (appt.arrivalTime || '').includes(lowerCaseSearchTerm) ||
+          (appt.leaveTime || '').includes(lowerCaseSearchTerm)
+        );
+      });
+    }
+
+    // Filter by specific columns
+    if (clientFilter) {
+      results = results.filter(appt => {
+        const clientIdentifier = appt.clientName || appt.client?.name || appt.client?.phoneNumber || '';
+        return clientIdentifier.toLowerCase().includes(clientFilter.toLowerCase());
+      });
+    }
+
+    if (serviceFilter) {
+      results = results.filter(appt => {
+        const servicesText = Array.isArray(appt.serviceConsumed) ? appt.serviceConsumed.join(', ') : (appt.serviceConsumed || '');
+        return servicesText.toLowerCase().includes(serviceFilter.toLowerCase());
+      });
+    }
+
+    if (dateFilter) {
+      results = results.filter(appt => {
+        const formattedDate = formatDateTime(appt.appointmentDate).toLowerCase();
+        return formattedDate.includes(dateFilter.toLowerCase());
+      });
+    }
+
+    if (startTimeFilter) {
+      results = results.filter(appt => {
+        return (appt.arrivalTime || '').includes(startTimeFilter);
+      });
+    }
+
+    if (endTimeFilter) {
+      results = results.filter(appt => {
+        return (appt.leaveTime || '').includes(endTimeFilter);
+      });
+    }
+
+    if (professionalFilter) {
+      results = results.filter(appt => {
+        return appt.attendedEmployee.toLowerCase().includes(professionalFilter.toLowerCase());
+      });
+    }
 
     // Filter by employee if level 1, 2, or 3
-    let results = filtered;
     if (isLevel123 && name) {
       results = results.filter(appt =>
         appt.attendedEmployee.toLowerCase().includes(name.toLowerCase())
@@ -66,7 +116,7 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
       const timeB = b.arrivalTime || '00:00';
       return timeB.localeCompare(timeA);
     });
-  }, [searchTerm, initialAppointments, isLevel123, name]);
+  }, [searchTerm, clientFilter, serviceFilter, dateFilter, startTimeFilter, endTimeFilter, professionalFilter, initialAppointments, isLevel123, name]);
 
   return (
     <div>
@@ -93,13 +143,84 @@ export default function AppointmentList({ initialAppointments }: AppointmentList
             <table className="min-w-full divide-y divide-gray-200 bg-white border-separate border-spacing-0">
               <thead className="bg-gray-50 sticky top-0 z-20">
                 <tr>
-                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200`}>Cliente</th>
-                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200`}>Servicio</th>
-                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200`}>Fecha</th>
-                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200`}>Inicio</th>
-                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200`}>Fin</th>
-                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200`}>Profesional</th>
-                  <th scope="col" className={`${thStyle} sticky top-0 right-0 bg-gray-50 border-b border-l border-gray-200 z-30 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]`}>Acciones</th>
+                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200 align-top`}>
+                    <div className="flex flex-col space-y-2">
+                      <span>Cliente</span>
+                      <input
+                        type="text"
+                        placeholder="Filtrar cliente..."
+                        className="w-full min-w-[120px] px-2 py-1 text-xs border border-gray-300 rounded text-gray-700 font-normal focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 placeholder-gray-400 bg-white shadow-sm"
+                        value={clientFilter}
+                        onChange={(e) => setClientFilter(e.target.value)}
+                      />
+                    </div>
+                  </th>
+                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200 align-top`}>
+                    <div className="flex flex-col space-y-2">
+                      <span>Servicio</span>
+                      <input
+                        type="text"
+                        placeholder="Filtrar servicio..."
+                        className="w-full min-w-[120px] px-2 py-1 text-xs border border-gray-300 rounded text-gray-700 font-normal focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 placeholder-gray-400 bg-white shadow-sm"
+                        value={serviceFilter}
+                        onChange={(e) => setServiceFilter(e.target.value)}
+                      />
+                    </div>
+                  </th>
+                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200 align-top`}>
+                    <div className="flex flex-col space-y-2">
+                      <span>Fecha</span>
+                      <input
+                        type="text"
+                        placeholder="DD/MM/YYYY"
+                        className="w-full min-w-[100px] px-2 py-1 text-xs border border-gray-300 rounded text-gray-700 font-normal focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 placeholder-gray-400 bg-white shadow-sm"
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value)}
+                      />
+                    </div>
+                  </th>
+                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200 align-top`}>
+                    <div className="flex flex-col space-y-2">
+                      <span>Inicio</span>
+                      <input
+                        type="text"
+                        placeholder="Ej: 10:00"
+                        className="w-full min-w-[80px] px-2 py-1 text-xs border border-gray-300 rounded text-gray-700 font-normal focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 placeholder-gray-400 bg-white shadow-sm"
+                        value={startTimeFilter}
+                        onChange={(e) => setStartTimeFilter(e.target.value)}
+                      />
+                    </div>
+                  </th>
+                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200 align-top`}>
+                    <div className="flex flex-col space-y-2">
+                      <span>Fin</span>
+                      <input
+                        type="text"
+                        placeholder="Ej: 11:00"
+                        className="w-full min-w-[80px] px-2 py-1 text-xs border border-gray-300 rounded text-gray-700 font-normal focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 placeholder-gray-400 bg-white shadow-sm"
+                        value={endTimeFilter}
+                        onChange={(e) => setEndTimeFilter(e.target.value)}
+                      />
+                    </div>
+                  </th>
+                  <th scope="col" className={`${thStyle} sticky top-0 bg-gray-50 border-b border-gray-200 align-top`}>
+                    <div className="flex flex-col space-y-2">
+                      <span>Profesional</span>
+                      <input
+                        type="text"
+                        placeholder="Filtrar prof..."
+                        className="w-full min-w-[120px] px-2 py-1 text-xs border border-gray-300 rounded text-gray-700 font-normal focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 placeholder-gray-400 bg-white shadow-sm"
+                        value={professionalFilter}
+                        onChange={(e) => setProfessionalFilter(e.target.value)}
+                      />
+                    </div>
+                  </th>
+                  <th scope="col" className={`${thStyle} sticky top-0 right-0 bg-gray-50 border-b border-l border-gray-200 z-30 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)] align-top`}>
+                    <div className="flex flex-col space-y-2">
+                      <span>Acciones</span>
+                      <div className="h-[26px]"></div>
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
