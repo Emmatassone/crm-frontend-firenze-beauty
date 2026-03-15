@@ -71,7 +71,6 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [mounted, setMounted] = useState(false);
     const [expandedDay, setExpandedDay] = useState<number | null>(null);
     const [isWeekView, setIsWeekView] = useState(false); // Week view for mobile
-    const [expandedEventId, setExpandedEventId] = useState<string | null>(null); // For tap-to-expand on mobile
     const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
     const router = useRouter();
 
@@ -154,7 +153,8 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                     setEvents(fresh || []);
                 }
             } catch (err) {
-                console.error('Polling: failed to refresh schedules', err);
+                // Use console.warn to avoid triggering the Next.js dev overlay for background polling errors
+                console.warn('Polling: failed to refresh schedules (backend might be restarting)', err);
             }
         }, pollInterval);
         return () => clearInterval(interval);
@@ -448,11 +448,6 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
 
     const handleEventClick = (e: React.MouseEvent, event: AppointmentSchedule) => {
         e.stopPropagation();
-
-        // Restrict access for levels 1, 2, 3
-        if (isLevel123) {
-            return;
-        }
 
         setSelectedEventForAction(event);
         setIsActionModalOpen(true);
@@ -903,7 +898,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         maxVisible: number
     ) => {
         const isExpanded = expandedDay === day;
-        const visibleEvents = isExpanded ? dayEvents : dayEvents.slice(0, maxVisible);
+        const visibleEvents = dayEvents.slice(0, maxVisible);
         const hasMoreAppointments = dayEvents.length > maxVisible;
         const hiddenCount = dayEvents.length - maxVisible;
         const rowIndex = Math.floor(days.length / visibleDayCount);
@@ -935,7 +930,6 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                         !(e.target as HTMLElement).closest('[data-expand-btn]') &&
                         !(e.target as HTMLElement).closest('[data-holiday-btn]')) {
                         setExpandedDay(null);
-                        setExpandedEventId(null);
                         handleDayClick(day);
                     }
                 }}
@@ -943,7 +937,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 onDragOver={handleDragOver}
                 className={`min-h-[120px] md:h-32 border border-gray-200 p-1 md:p-2 cursor-pointer transition-colors relative 
                     ${isHoliday ? 'bg-gray-100/80 saturate-50' : isToday ? 'bg-pink-50 hover:bg-pink-100 active:bg-pink-200' : 'bg-white hover:bg-gray-50 active:bg-gray-100'} 
-                    ${isExpanded ? 'overflow-visible z-[100]' : 'overflow-hidden hover:overflow-visible hover:z-[40]'}`}
+                    ${isExpanded ? 'z-[100]' : 'overflow-hidden hover:overflow-visible hover:z-[40]'}`}
             >
                 <div className="flex justify-between items-start">
                     <div className="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-2">
@@ -986,7 +980,6 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                         const employeeName = availableEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar';
                         const startTime = mounted && !event.isAllDay ? new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                         const endTime = mounted && !event.isAllDay ? new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                        const isEventExpanded = expandedEventId === event.id;
 
                         return (
                             <div
@@ -994,23 +987,13 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                 data-event-item="true"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    // Soft click opens expanded detail on mobile (hover imitation)
-                                    // Second click or direct click on action buttons opens modal
-                                    if (window.innerWidth < 768) {
-                                        if (expandedEventId === event.id) {
-                                            handleEventClick(e, event);
-                                        } else {
-                                            setExpandedEventId(event.id);
-                                        }
-                                    } else {
-                                        handleEventClick(e, event);
-                                    }
+                                    handleEventClick(e, event);
                                 }}
-                                className={`group text-[11px] md:text-xs p-1 md:p-1.5 rounded text-white shadow-sm transition-all duration-200 cursor-pointer active:scale-95 md:hover:scale-[1.05] hover:shadow-xl hover:z-[50] relative ${event.status === 'canceled' ? 'bg-red-600' :
+                                className={`group text-[11px] md:text-xs p-1 md:p-1.5 rounded text-white shadow-sm transition-all duration-200 cursor-pointer active:scale-95 hover:shadow-md relative overflow-hidden ${event.status === 'canceled' ? 'bg-red-600' :
                                     event.status === 'unavailable' ? 'bg-black' :
                                         (event.status === 'confirmed' || event.deposit) ? 'bg-emerald-600' :
                                             'bg-amber-500'
-                                    } ${isEventExpanded ? 'ring-2 ring-white ring-offset-2 ring-offset-pink-400 z-[60]' : ''}`}
+                                    }`}
                             >
                                 {/* Mobile Optimized Horizontal Layout (Week View) */}
                                 <div className="flex md:hidden items-center gap-2">
@@ -1019,12 +1002,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                             {startTime}<br />{endTime}
                                         </span>
                                     )}
-                                    <div className="flex-1 min-w-0 flex flex-col">
+                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
                                         <span className="text-[11px] font-bold truncate leading-tight">
                                             {clientName}
-                                        </span>
-                                        <span className="text-[10px] opacity-90 truncate leading-tight">
-                                            {event.title.includes(':') ? event.title.split(':')[1] : employeeName}
                                         </span>
                                     </div>
                                 </div>
@@ -1037,44 +1017,10 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                                 {startTime}-{endTime}
                                             </span>
                                         )}
-                                        <span className={`text-[10px] md:text-[11px] font-medium truncate flex-1 ${isEventExpanded ? 'whitespace-normal' : ''}`}>
+                                        <span className="text-[10px] md:text-[11px] font-medium truncate flex-1">
                                             {clientName}
                                         </span>
                                     </div>
-                                </div>
-
-                                {/* Expanded content for mobile tap or desktop hover */}
-                                <div className={`${isEventExpanded ? 'block' : 'hidden md:group-hover:block'} mt-1.5 pt-1.5 border-t border-white/20 animate-in fade-in slide-in-from-top-1 duration-200`}>
-                                    <div className="flex justify-between items-center mb-1">
-                                        <span className="text-[9px] opacity-90 font-bold uppercase">Fin: {endTime}</span>
-                                        {event.deposit && <span className="text-[9px] bg-white text-emerald-700 px-1 rounded font-bold">${event.deposit}</span>}
-                                    </div>
-                                    <div className="text-[9px] font-medium opacity-90 truncate">
-                                        👩‍💼 {employeeName}
-                                    </div>
-                                    {event.title.includes(': ') && (
-                                        <div className="text-[9px] font-medium mt-1 italic opacity-80 leading-tight">
-                                            ✨ {event.title.split(': ')[1]}
-                                        </div>
-                                    )}
-                                    {isEventExpanded && (
-                                        <div className="mt-2 flex gap-2">
-                                            {!isLevel123 && (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleEventClick(e, event); }}
-                                                    className="flex-1 bg-white/20 hover:bg-white/30 py-1 rounded text-[9px] font-bold uppercase tracking-wider"
-                                                >
-                                                    Opciones
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setExpandedEventId(null); }}
-                                                className={`bg-white/20 hover:bg-white/30 px-2 py-1 rounded text-[9px] ${isLevel123 ? 'flex-1' : ''}`}
-                                            >
-                                                {isLevel123 ? 'Cerrar' : '✕'}
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         );
@@ -1096,7 +1042,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 {isExpanded && (
                     <div
                         data-expanded-panel="true"
-                        className={`absolute left-0 right-0 z-[200] bg-white border border-gray-300 rounded-lg shadow-2xl p-3 ${isBottomRow ? 'bottom-full mb-1' : 'top-full mt-1'}`}
+                        className={`absolute left-0 right-0 z-[200] bg-white border border-gray-300 rounded-lg shadow-2xl p-3 ${isBottomRow ? 'bottom-0' : 'top-0'}`}
                         style={{ minWidth: '280px', maxHeight: '300px' }}
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -1129,21 +1075,18 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                             setExpandedDay(null);
                                             handleEventClick(e, event);
                                         }}
-                                        className={`group p-2 rounded-lg text-white shadow-sm cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all ${event.status === 'canceled' ? 'bg-red-600' :
+                                        className={`group px-1.5 md:px-2 py-1 md:py-1.5 rounded text-white shadow-sm cursor-pointer hover:shadow-md transition-all flex items-center justify-between gap-1 overflow-hidden ${event.status === 'canceled' ? 'bg-red-600' :
                                             event.status === 'unavailable' ? 'bg-black' :
                                                 (event.status === 'confirmed' || event.deposit) ? 'bg-emerald-600' :
                                                     'bg-amber-500'
                                             }`}
                                     >
-                                        <div className="flex items-center justify-between mb-1">
-                                            {mounted && !event.isAllDay && (
-                                                <span className="font-mono text-xs font-bold">
-                                                    {startTime}-{endTime}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="text-xs font-medium">{clientName}</div>
-                                        <div className="text-[10px] opacity-90 mt-1">Prof: {employeeName}</div>
+                                        {mounted && !event.isAllDay && (
+                                            <span className="font-mono text-[10px] md:text-[11px] font-bold whitespace-nowrap">
+                                                {startTime}-{endTime}
+                                            </span>
+                                        )}
+                                        <span className="text-[10px] md:text-[11px] font-medium truncate flex-1">{clientName}</span>
                                     </div>
                                 );
                             })}
@@ -1651,56 +1594,82 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 </div>
             )}
             {isActionModalOpen && selectedEventForAction && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        <div className="p-6 text-center">
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">Opciones de Turno</h3>
-                            <p className="text-sm text-gray-500 mb-6">{selectedEventForAction.title}</p>
-
-                            <div className="space-y-3">
-                                {selectedEventForAction.status !== 'canceled' && selectedEventForAction.status !== 'unavailable' && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setIsActionModalOpen(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-b border-gray-100">
+                            <div className="flex items-center gap-1">
+                                {!isLevel123 && selectedEventForAction.status !== 'canceled' && selectedEventForAction.status !== 'unavailable' && (
                                     <>
-                                        <button
-                                            onClick={handleConfirmSelectedEvent}
-                                            className="w-full flex items-center justify-center space-x-2 bg-pink-600 text-white py-3 rounded-xl font-bold hover:bg-pink-700 transition-all shadow-md active:scale-95"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                            <span>Confirmar Turno</span>
+                                        <button onClick={handleConfirmSelectedEvent} className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors" title="Confirmar Turno">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
                                         </button>
-
-                                        <button
-                                            onClick={handleConfirmAbsence}
-                                            className="w-full flex items-center justify-center space-x-2 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-all shadow-md active:scale-95"
-                                        >
+                                        <button onClick={handleConfirmAbsence} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors" title="Marcar Ausencia">
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                            <span>Confirmar Ausencia</span>
                                         </button>
                                     </>
                                 )}
-
-                                <button
-                                    onClick={handleEditSelectedEvent}
-                                    className="w-full flex items-center justify-center space-x-2 bg-white text-gray-700 border-2 border-gray-200 py-3 rounded-xl font-bold hover:bg-gray-50 transition-all active:scale-95"
-                                >
-                                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                    <span>Editar Reserva</span>
-                                </button>
-
-                                <button
-                                    onClick={handleDeleteFromAction}
-                                    className="w-full flex items-center justify-center space-x-2 bg-red-50 text-red-600 border-2 border-red-100 py-3 rounded-xl font-bold hover:bg-red-100 transition-all active:scale-95"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                    <span>Eliminar Turno</span>
-                                </button>
+                                {!isLevel123 && (
+                                    <>
+                                        <button onClick={handleEditSelectedEvent} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors" title="Editar Turno">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                        </button>
+                                        <button onClick={handleDeleteFromAction} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors" title="Eliminar Turno">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </>
+                                )}
                             </div>
-
-                            <button
-                                onClick={() => setIsActionModalOpen(false)}
-                                className="mt-6 text-gray-400 hover:text-gray-600 text-sm font-medium"
-                            >
-                                Cerrar
+                            <button onClick={() => setIsActionModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors" title="Cerrar">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
+                        </div>
+                        <div className="p-6">
+                            <div className="flex items-start gap-4 mb-4">
+                                <div className={`mt-1.5 w-4 h-4 rounded-sm flex-shrink-0 ${
+                                    selectedEventForAction.status === 'canceled' ? 'bg-red-600' :
+                                    selectedEventForAction.status === 'unavailable' ? 'bg-black' :
+                                    (selectedEventForAction.status === 'confirmed' || selectedEventForAction.deposit) ? 'bg-emerald-600' :
+                                    'bg-amber-500'
+                                }`}></div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900 leading-tight">
+                                        {selectedEventForAction.clientName || availableClients.find(c => c.id === selectedEventForAction.clientId)?.name || 'Sin Cliente'}
+                                    </h3>
+                                    <p className="text-sm text-gray-500 mt-1">
+                                        {selectedEventForAction.title}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-4 ms-8">
+                                <div className="flex items-center gap-3 text-gray-700">
+                                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <div className="text-sm">
+                                        <p className="font-medium text-gray-900">
+                                        {new Date(selectedEventForAction.start).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                        </p>
+                                        <p className="mt-0.5">{new Date(selectedEventForAction.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(selectedEventForAction.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 text-gray-700">
+                                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                    <p className="text-sm">{availableEmployees.find(emp => emp.id === selectedEventForAction.employeeId)?.name || 'Sin Profesional'}</p>
+                                </div>
+                                {selectedEventForAction.deposit ? (
+                                    <div className="flex items-center gap-3 text-gray-700">
+                                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        <p className="text-sm">Seña: <span className="font-bold text-emerald-600">${selectedEventForAction.deposit}</span></p>
+                                    </div>
+                                ) : null}
+                                {selectedEventForAction.notes && (
+                                    <div className="flex items-start gap-3 text-gray-700 mt-2">
+                                        <svg className="w-5 h-5 text-gray-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+                                        <div className="text-sm flex-1 break-words">
+                                            <p className="whitespace-pre-wrap">{selectedEventForAction.notes}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
