@@ -88,8 +88,10 @@ export default function AppointmentForm({ onSubmit, isLoading, defaultValues, is
           getEmployees(),
           getServices(),
         ]);
-        const activeEmployees = employeeData.filter(e => e.status === 'active');
-        setEmployees(activeEmployees);
+        const filteredEmployees = employeeData.filter(e => 
+          e.status === 'active' || (defaultValues?.attendedEmployee && e.name === defaultValues.attendedEmployee)
+        );
+        setEmployees(filteredEmployees);
         setServices(serviceData);
 
         // Sync attendedEmployee if it came from defaultValues

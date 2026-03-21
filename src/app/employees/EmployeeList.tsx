@@ -14,30 +14,47 @@ const naDisplay = <span className="text-gray-400">N/D</span>;
 
 export default function EmployeeList({ initialEmployees }: EmployeeListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [showRetired, setShowRetired] = useState(false);
 
   const filteredEmployees = useMemo(() => {
-    // First filter out retired employees
-    const nonRetiredEmployees = initialEmployees.filter(e => e.status !== 'retired');
+    let list = initialEmployees;
+    if (!showRetired) {
+      list = list.filter(e => e.status !== 'retired');
+    }
 
-    if (!searchTerm) return nonRetiredEmployees;
+    if (!searchTerm) return list;
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
-    return nonRetiredEmployees.filter(employee =>
-      (employee.name.toLowerCase().includes(lowerCaseSearchTerm)) ||
-      (employee.jobTitle.some(title => title.toLowerCase().includes(lowerCaseSearchTerm))) ||
-      (employee.email.toLowerCase().includes(lowerCaseSearchTerm))
+    return list.filter(employee =>
+      (employee.name?.toLowerCase().includes(lowerCaseSearchTerm)) ||
+      (employee.jobTitle?.some(title => title.toLowerCase().includes(lowerCaseSearchTerm))) ||
+      (employee.email?.toLowerCase().includes(lowerCaseSearchTerm))
     );
-  }, [searchTerm, initialEmployees]);
+  }, [searchTerm, initialEmployees, showRetired]);
 
   return (
     <div>
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Buscar por nombre, puesto, email..."
-          className="mt-1 block w-full md:w-1/2 lg:w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex-1">
+          <input
+            type="text"
+            placeholder="Buscar por nombre, puesto, email..."
+            className="block w-full md:w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center">
+          <input
+            id="showRetired"
+            type="checkbox"
+            className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded cursor-pointer"
+            checked={showRetired}
+            onChange={(e) => setShowRetired(e.target.checked)}
+          />
+          <label htmlFor="showRetired" className="ml-2 block text-sm text-gray-700 cursor-pointer">
+            Mostrar Retirados
+          </label>
+        </div>
       </div>
 
       {filteredEmployees.length === 0 && searchTerm && (

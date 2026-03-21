@@ -25,6 +25,10 @@ export default function EmployeeDetailsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   // Vacation deduction state
   const [vacationDaysToDeduct, setVacationDaysToDeduct] = useState<number>(1);
@@ -106,6 +110,28 @@ export default function EmployeeDetailsPage() {
       setSaveError(err?.message || `Error al actualizar ${field}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!id || !newPassword || newPassword.length < 8) {
+      setPasswordError('La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setPasswordError(null);
+    setPasswordSuccess(false);
+
+    try {
+      await updateEmployee(id, { password: newPassword });
+      setPasswordSuccess(true);
+      setNewPassword('');
+      setTimeout(() => setPasswordSuccess(false), 3000);
+    } catch (err: any) {
+      setPasswordError(err?.message || 'Error al cambiar la contraseña');
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -429,8 +455,8 @@ export default function EmployeeDetailsPage() {
             })() : 'N/D'}
           </div>
         </div>
-        <div><div className="text-sm text-gray-500">Creado</div><div className="text-lg text-gray-900">{new Date(employee.createdAt).toLocaleString()}</div></div>
-        <div><div className="text-sm text-gray-500">Actualizado</div><div className="text-lg text-gray-900">{new Date(employee.updatedAt).toLocaleString()}</div></div>
+        <div><div className="text-sm text-gray-500">Creado</div><div className="text-lg text-gray-900">{employee ? new Date(employee.createdAt).toLocaleString() : 'N/D'}</div></div>
+        <div><div className="text-sm text-gray-500">Actualizado</div><div className="text-lg text-gray-900">{employee ? new Date(employee.updatedAt).toLocaleString() : 'N/D'}</div></div>
 
         {/* Save messages at the bottom of the grid or separate container */}
         <div className="col-span-1 md:col-span-2">
@@ -438,6 +464,43 @@ export default function EmployeeDetailsPage() {
           {saveError && <span className="text-red-600 text-sm block">{saveError}</span>}
         </div>
       </div>
+
+      {/* Change Password Section (Level 6 only) */}
+      {canAccessAnalytics && (
+        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-amber-500">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            Cambiar Contraseña
+          </h2>
+          <div className="flex flex-col md:flex-row items-start md:items-end gap-4">
+            <div className="w-full md:w-64">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nueva Contraseña</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mínimo 8 caracteres"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500 text-sm"
+                disabled={isChangingPassword}
+              />
+            </div>
+            <button
+              onClick={handleUpdatePassword}
+              disabled={isChangingPassword || !newPassword}
+              className="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 disabled:opacity-50 text-sm font-medium transition flex items-center gap-2"
+            >
+              {isChangingPassword ? 'Cambiando...' : 'Actualizar Contraseña'}
+            </button>
+          </div>
+          {passwordSuccess && <span className="text-green-600 text-sm mt-2 block font-medium">✓ Contraseña actualizada correctamente</span>}
+          {passwordError && <span className="text-red-600 text-sm mt-2 block font-medium">{passwordError}</span>}
+          <p className="mt-2 text-xs text-gray-400">
+            Esta acción permite a un administrador (Nivel 6) resetear la contraseña de cualquier usuario.
+          </p>
+        </div>
+      )}
 
       {/* Weekly Work Hours Table */}
       <div className="bg-white rounded-lg shadow p-6">

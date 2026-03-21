@@ -52,7 +52,8 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState<AppointmentSchedule | null>(null);
-    const [availableEmployees, setAvailableEmployees] = useState<Employee[]>([]);
+    const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
+    const activeEmployees = useMemo(() => allEmployees.filter(e => e.status === 'active'), [allEmployees]);
     const [availableServices, setAvailableServices] = useState<Service[]>([]);
     const [availableClients, setAvailableClients] = useState<ClientProfile[]>([]);
     const [selectedServices, setSelectedServices] = useState<any[]>([]);
@@ -176,14 +177,13 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             }
 
             setEvents(eventsData || []);
-            const activeEmployees = (employeesData || []).filter(e => e.status === 'active');
-            setAvailableEmployees(activeEmployees);
+            setAllEmployees(employeesData || []);
             setAvailableServices(servicesData || []);
             setAvailableClients(clientsData || []);
 
             // Fix filter for level 1, 2, 3
             if (isLevel123) {
-                const currentUserEmployee = activeEmployees.find(e =>
+                const currentUserEmployee = (employeesData || []).find(e =>
                     e.email === email || e.name === name
                 );
                 if (currentUserEmployee) {
@@ -205,7 +205,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 return;
             }
 
-            const employee = availableEmployees.find(e => e.id === formData.employeeId);
+            const employee = allEmployees.find(e => e.id === formData.employeeId);
             if (!employee) return;
 
             try {
@@ -287,7 +287,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         };
 
         calculateDuration();
-    }, [formData.employeeId, selectedServices, formData.start, availableEmployees]);
+    }, [formData.employeeId, selectedServices, formData.start, allEmployees]);
 
     // Validate that end time is not before start time
     const isTimeInvalid = (): boolean => {
@@ -502,7 +502,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         const endTime = new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 
         // Get employee name
-        const employee = availableEmployees.find(e => e.id === event.employeeId);
+        const employee = allEmployees.find(e => e.id === event.employeeId);
 
         // Map services
         // If we have selectedServices in state for the current editing event it might be better, 
@@ -622,7 +622,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 const newEnd = new Date(finalData.end).getTime();
 
                 // Check if employee allows overlapping appointments
-                const employee = availableEmployees.find(e => e.id === finalData.employeeId);
+                const employee = allEmployees.find(e => e.id === finalData.employeeId);
                 const allowOverlap = employee?.allow_overlap || false;
 
                 if (!allowOverlap) {
@@ -759,7 +759,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             return availableServices.map(s => ({ value: s.id, label: s.name }));
         }
 
-        const employee = availableEmployees.find(e => e.id === formData.employeeId);
+        const employee = allEmployees.find(e => e.id === formData.employeeId);
         if (!employee || !employee.jobTitle || employee.jobTitle.length === 0) {
             return availableServices.map(s => ({ value: s.id, label: s.name }));
         }
@@ -770,7 +770,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         );
 
         return filtered.map(s => ({ value: s.id, label: s.name }));
-    }, [availableServices, formData.employeeId, availableEmployees]);
+    }, [availableServices, formData.employeeId, allEmployees]);
 
     // Clear services if they are no longer in the filtered list when professional changes
     useEffect(() => {
@@ -800,7 +800,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
 
         // Get selected employee for work hours display
         const selectedEmployee = filterEmployeeId !== 'all'
-            ? availableEmployees.find(e => e.id === filterEmployeeId)
+            ? allEmployees.find(e => e.id === filterEmployeeId)
             : null;
 
         const daysOfWeekNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -949,7 +949,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                         <span className="hidden md:inline">{workHoursDisplay}</span>
                     </div>
                     <div className="flex items-center gap-1">
-                        {level === '6' && (
+                        {level === '6' && filterEmployeeId === 'all' && filterClientId === 'all' && !selectedClient && (
                             <button
                                 data-holiday-btn="true"
                                 onClick={(e) => handleToggleHoliday(e, date, globalUnavailableEvent?.id)}
@@ -977,7 +977,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 <div className="mt-1 space-y-1">
                     {visibleEvents.map(event => {
                         const clientName = event.clientName || availableClients.find(c => c.id === event.clientId)?.name || 'Sin cliente';
-                        const employeeName = availableEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar';
+                        const employeeName = allEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar';
                         const startTime = mounted && !event.isAllDay ? new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                         const endTime = mounted && !event.isAllDay ? new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
@@ -1062,7 +1062,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                         </div>
                         <div className="space-y-1.5 overflow-y-auto" style={{ maxHeight: '240px' }}>
                             {dayEvents.map(event => {
-                                const employeeName = availableEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar';
+                                const employeeName = allEmployees.find(emp => emp.id === event.employeeId)?.name || 'Sin asignar';
                                 const clientName = event.clientName || availableClients.find(c => c.id === event.clientId)?.name || 'Sin cliente';
                                 const startTime = mounted && !event.isAllDay ? new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                                 const endTime = mounted && !event.isAllDay ? new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
@@ -1169,7 +1169,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                 } ${isLevel123 ? 'cursor-not-allowed opacity-70' : ''}`}
                         >
                             {!isLevel123 && <option value="all">Todos los Profesionales</option>}
-                            {availableEmployees.map(emp => (
+                            {allEmployees.filter(emp => emp.status !== 'retired').map(emp => (
                                 <option key={emp.id} value={emp.id}>{emp.name}</option>
                             ))}
                         </select>
@@ -1389,7 +1389,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                         onChange={(e) => setFormData({ ...formData, employeeId: e.target.value || undefined })}
                                     >
                                         <option value="">Seleccionar...</option>
-                                        {availableEmployees.map(emp => (
+                                        {activeEmployees.map(emp => (
                                             <option key={emp.id} value={emp.id}>{emp.name}</option>
                                         ))}
                                     </select>
@@ -1563,7 +1563,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                                 setFormData({
                                                     ...formData,
                                                     status: checked ? 'unavailable' : (formData.deposit ? 'confirmed' : 'pending'),
-                                                    title: checked ? (formData.employeeId ? `BLOQUEO - ${availableEmployees.find(emp => emp.id === formData.employeeId)?.name}` : 'BLOQUEO') : (formData.title.startsWith('BLOQUEO') ? '' : formData.title)
+                                                    title: checked ? (formData.employeeId ? `BLOQUEO - ${allEmployees.find(emp => emp.id === formData.employeeId)?.name}` : 'BLOQUEO') : (formData.title.startsWith('BLOQUEO') ? '' : formData.title)
                                                 });
                                             }}
                                         />
@@ -1653,7 +1653,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                 </div>
                                 <div className="flex items-center gap-3 text-gray-700">
                                     <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                    <p className="text-sm">{availableEmployees.find(emp => emp.id === selectedEventForAction.employeeId)?.name || 'Sin Profesional'}</p>
+                                    <p className="text-sm">{allEmployees.find(emp => emp.id === selectedEventForAction.employeeId)?.name || 'Sin Profesional'}</p>
                                 </div>
                                 {selectedEventForAction.deposit ? (
                                     <div className="flex items-center gap-3 text-gray-700">
@@ -1770,11 +1770,10 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             <AvailabilityModal
                 isOpen={isAvailabilityModalOpen}
                 onClose={() => setIsAvailabilityModalOpen(false)}
-                employees={availableEmployees}
+                employees={activeEmployees}
                 events={events}
                 onSelectSlot={(employeeId, startIso, endIso) => {
                     setIsAvailabilityModalOpen(false);
-                    const emp = availableEmployees.find(e => e.id === employeeId);
                     const date = new Date(startIso);
                     openModal(date, {
                         employeeId,
