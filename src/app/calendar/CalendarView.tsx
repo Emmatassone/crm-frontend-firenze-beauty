@@ -58,6 +58,11 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [availableClients, setAvailableClients] = useState<ClientProfile[]>([]);
     const [selectedServices, setSelectedServices] = useState<any[]>([]);
     const [serviceDataSources, setServiceDataSources] = useState<Record<string, 'personal' | 'default'>>({});
+    const [retiredEmployeeIds, setRetiredEmployeeIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        setRetiredEmployeeIds(new Set(allEmployees.filter(e => e.status === 'retired').map(e => e.id)));
+    }, [allEmployees]);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [filterEmployeeId, setFilterEmployeeId] = useState<string>('all');
     const [filterClientId, setFilterClientId] = useState<string>('all');
@@ -73,6 +78,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [expandedDay, setExpandedDay] = useState<number | null>(null);
     const [isWeekView, setIsWeekView] = useState(false); // Week view for mobile
     const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
+    const [showRetiredSetting, setShowRetiredSetting] = useState<boolean>(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -164,22 +170,27 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [eventsData, employeesData, servicesData, clientsData, settingData] = await Promise.all([
+            const [eventsData, employeesData, servicesData, clientsData, daysSetting, showRetiredSett] = await Promise.all([
                 getAppointmentSchedules(),
                 getEmployees(),
                 getServices(),
                 getClientProfiles(),
-                getSettingByKey('calendar_days').catch(() => null)
+                getSettingByKey('calendar_days'),
+                getSettingByKey('show_retired_employees')
             ]);
 
-            if (settingData && Array.isArray(settingData.value)) {
-                setVisibleDays(settingData.value);
+            if (daysSetting && Array.isArray(daysSetting.value)) {
+                setVisibleDays(daysSetting.value);
             }
 
             setEvents(eventsData || []);
             setAllEmployees(employeesData || []);
             setAvailableServices(servicesData || []);
             setAvailableClients(clientsData || []);
+
+            if (showRetiredSett && typeof showRetiredSett.value === 'boolean') {
+                setShowRetiredSetting(showRetiredSett.value);
+            }
 
             // Fix filter for level 1, 2, 3
             if (isLevel123) {
@@ -845,7 +856,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 const dayEvents = events.filter(e => {
                     const eDate = new Date(e.start);
                     const isSameDay = eDate.getDate() === day && eDate.getMonth() === month && eDate.getFullYear() === year;
-                    const matchesEmployee = filterEmployeeId === 'all' || String(e.employeeId) === filterEmployeeId;
+                    const matchesEmployee = (filterEmployeeId === 'all' 
+                        ? (showRetiredSetting || !retiredEmployeeIds.has(String(e.employeeId))) 
+                        : String(e.employeeId) === filterEmployeeId);
                     const matchesClient = filterClientId === 'all' || String(e.clientId) === filterClientId;
                     return isSameDay && matchesEmployee && matchesClient;
                 }).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
@@ -869,7 +882,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 const dayEvents = events.filter(e => {
                     const eDate = new Date(e.start);
                     const isSameDay = eDate.getDate() === date.getDate() && eDate.getMonth() === date.getMonth() && eDate.getFullYear() === date.getFullYear();
-                    const matchesEmployee = filterEmployeeId === 'all' || String(e.employeeId) === filterEmployeeId;
+                    const matchesEmployee = (filterEmployeeId === 'all' 
+                        ? (showRetiredSetting || !retiredEmployeeIds.has(String(e.employeeId))) 
+                        : String(e.employeeId) === filterEmployeeId);
                     const matchesClient = filterClientId === 'all' || String(e.clientId) === filterClientId;
                     return isSameDay && matchesEmployee && matchesClient;
                 }).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
@@ -1169,8 +1184,10 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                 } ${isLevel123 ? 'cursor-not-allowed opacity-70' : ''}`}
                         >
                             {!isLevel123 && <option value="all">Todos los Profesionales</option>}
-                            {allEmployees.filter(emp => emp.status !== 'retired').map(emp => (
-                                <option key={emp.id} value={emp.id}>{emp.name}</option>
+                            {allEmployees.filter(emp => showRetiredSetting || emp.status !== 'retired').map(emp => (
+                                <option key={emp.id} value={emp.id}>
+                                    {emp.name}{emp.status === 'retired' ? ' (Retirado)' : ''}
+                                </option>
                             ))}
                         </select>
                     </div>

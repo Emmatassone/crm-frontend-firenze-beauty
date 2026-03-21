@@ -20,6 +20,7 @@ export default function SettingsPage() {
     const { level, isTokenValid } = useAuthStore();
     const router = useRouter();
     const [selectedDays, setSelectedDays] = useState<number[]>([]);
+    const [showRetiredEmployees, setShowRetiredEmployees] = useState<boolean>(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -31,18 +32,27 @@ export default function SettingsPage() {
             return;
         }
 
-        fetchCalendarSettings();
+        fetchSettings();
     }, [level, isTokenValid, router]);
 
-    const fetchCalendarSettings = async () => {
+    const fetchSettings = async () => {
         try {
             setLoading(true);
-            const setting = await getSettingByKey('calendar_days');
-            if (setting && Array.isArray(setting.value)) {
-                setSelectedDays(setting.value);
+            const [daysSetting, retiredSetting] = await Promise.all([
+                getSettingByKey('calendar_days'),
+                getSettingByKey('show_retired_employees')
+            ]);
+            
+            if (daysSetting && Array.isArray(daysSetting.value)) {
+                setSelectedDays(daysSetting.value);
             } else {
-                // Fallback or newly created
                 setSelectedDays([1, 2, 3, 4, 5, 6]);
+            }
+
+            if (retiredSetting && typeof retiredSetting.value === 'boolean') {
+                setShowRetiredEmployees(retiredSetting.value);
+            } else {
+                setShowRetiredEmployees(false);
             }
         } catch (error) {
             console.error('Error fetching settings:', error);
@@ -63,10 +73,16 @@ export default function SettingsPage() {
         try {
             setSaving(true);
             setMessage(null);
-            await updateSetting({
-                key: 'calendar_days',
-                value: selectedDays
-            });
+            await Promise.all([
+                updateSetting({
+                    key: 'calendar_days',
+                    value: selectedDays
+                }),
+                updateSetting({
+                    key: 'show_retired_employees',
+                    value: showRetiredEmployees
+                })
+            ]);
             setMessage({ type: 'success', text: 'Configuración guardada correctamente' });
             setTimeout(() => setMessage(null), 3000);
         } catch (error) {
@@ -158,10 +174,28 @@ export default function SettingsPage() {
                         })}
                     </div>
 
+                    <div className="mt-8 pt-8 border-t border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="flex-1">
+                            <h3 className="text-gray-900 font-bold mb-1">Personal Retirado</h3>
+                            <p className="text-sm text-gray-500">Muestra a los profesionales con estado "Retirado" en el calendario y sus filtros.</p>
+                        </div>
+                        <div className="flex items-center">
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    className="sr-only peer"
+                                    checked={showRetiredEmployees}
+                                    onChange={(e) => setShowRetiredEmployees(e.target.checked)}
+                                />
+                                <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-pink-600"></div>
+                            </label>
+                        </div>
+                    </div>
+
                     <div className="mt-8 p-4 rounded-2xl bg-amber-50 border border-amber-100 flex gap-4">
                         <div className="text-amber-500 text-2xl">💡</div>
                         <p className="text-sm text-amber-800 leading-relaxed font-medium">
-                            Los cambios realizados aquí afectarán a todos los terminales. Los turnos agendados en días deshabilitados no serán visibles en la vista mensual hasta que el día sea habilitado nuevamente.
+                            Los cambios realizados aquí afectarán a todos los terminales. Los turnos agendados en días deshabilitados o con profesionales retirados (si están ocultos) pueden no aparecer según esta configuración.
                         </p>
                     </div>
                 </div>
