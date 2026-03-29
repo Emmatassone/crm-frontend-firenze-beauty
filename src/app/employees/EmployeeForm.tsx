@@ -13,7 +13,8 @@ const jobTitleOptions = [
   { value: 'Peluqueria', label: 'Peluqueria' },
   { value: 'Maquillaje', label: 'Maquillaje' },
   { value: 'Cosmetología', label: 'Cosmetología' },
-  { value: 'Labios', label: 'Labios' }
+  { value: 'Labios', label: 'Labios' },
+  { value: 'Recepcionista', label: 'Recepcionista' }
 ];
 
 const levelValues = ["1", "2", "3", "4", "5", "6"] as const;
