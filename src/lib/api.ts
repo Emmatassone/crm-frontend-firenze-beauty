@@ -268,8 +268,24 @@ export interface AppointmentSchedule {
 export type CreateAppointmentScheduleDto = Omit<AppointmentSchedule, 'id' | 'createdAt' | 'updatedAt'>;
 export type UpdateAppointmentScheduleDto = Partial<CreateAppointmentScheduleDto>;
 
+export interface AppointmentScheduleFilters {
+  start?: string;
+  end?: string;
+  employeeId?: string;
+}
+
 // --- Appointment Schedule API Functions ---
-export const getAppointmentSchedules = (): Promise<AppointmentSchedule[]> => request<AppointmentSchedule[]>('/appointment-schedule');
+export const getAppointmentSchedules = (filters?: AppointmentScheduleFilters): Promise<AppointmentSchedule[]> => {
+  const params = new URLSearchParams();
+
+  if (filters?.start) params.set('start', filters.start);
+  if (filters?.end) params.set('end', filters.end);
+  if (filters?.employeeId) params.set('employeeId', filters.employeeId);
+
+  const query = params.toString();
+  const endpoint = query ? `/appointment-schedule?${query}` : '/appointment-schedule';
+  return request<AppointmentSchedule[]>(endpoint);
+};
 export const getAppointmentScheduleById = (id: string): Promise<AppointmentSchedule> => request<AppointmentSchedule>(`/appointment-schedule/${id}`);
 export const createAppointmentSchedule = (data: CreateAppointmentScheduleDto): Promise<AppointmentSchedule> => request<AppointmentSchedule>('/appointment-schedule', { method: 'POST', body: JSON.stringify(data) });
 export const updateAppointmentSchedule = (id: string, data: UpdateAppointmentScheduleDto): Promise<AppointmentSchedule> => request<AppointmentSchedule>(`/appointment-schedule/${id}`, { method: 'PATCH', body: JSON.stringify(data) });

@@ -140,11 +140,28 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const { token, isTokenValid, level, name, email } = useAuthStore();
     const isLevel123 = level === '1' || level === '2' || level === '3';
 
+    const scheduleRange = useMemo(() => {
+        const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1, 0, 0, 0, 0);
+        const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        // Add small buffer around month transitions so near-boundary events are still rendered.
+        const rangeStart = new Date(monthStart);
+        rangeStart.setDate(rangeStart.getDate() - 7);
+
+        const rangeEnd = new Date(monthEnd);
+        rangeEnd.setDate(rangeEnd.getDate() + 7);
+
+        return {
+            start: rangeStart.toISOString(),
+            end: rangeEnd.toISOString(),
+        };
+    }, [currentDate]);
+
     useEffect(() => {
         if (token && isTokenValid()) {
             fetchData();
         }
-    }, [token, isTokenValid]);
+    }, [token, isTokenValid, scheduleRange]);
 
     // Poll interval by user level: levels 4-6 (appointment managers) every 15s, levels 1-3 once a day
     const pollInterval = isLevel123 ? 86_400_000 : 15_000;
@@ -154,7 +171,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
         if (!token || !isTokenValid()) return;
         const interval = setInterval(async () => {
             try {
-                const fresh = await getAppointmentSchedules();
+                const fresh = await getAppointmentSchedules(scheduleRange);
                 // Only update state if the data actually changed (avoids unnecessary re-renders)
                 if (JSON.stringify(fresh) !== JSON.stringify(eventsRef.current)) {
                     setEvents(fresh || []);
@@ -165,13 +182,13 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             }
         }, pollInterval);
         return () => clearInterval(interval);
-    }, [token, pollInterval]);
+    }, [token, pollInterval, scheduleRange]);
 
     const fetchData = async () => {
         try {
             setLoading(true);
             const [eventsData, employeesData, servicesData, clientsData, daysSetting, showRetiredSett] = await Promise.all([
-                getAppointmentSchedules(),
+                getAppointmentSchedules(scheduleRange),
                 getEmployees(),
                 getServices(),
                 getClientProfiles(),
