@@ -21,6 +21,7 @@ export default function EmployeeDetailsPage() {
   const [editableEmploymentType, setEditableEmploymentType] = useState<Employee['employmentType'] | ''>('');
   const [editableMonthlySalary, setEditableMonthlySalary] = useState<string>('');
   const [editableWeeklyWorkingHours, setEditableWeeklyWorkingHours] = useState<string>('');
+  const [editableAllowOverlap, setEditableAllowOverlap] = useState<boolean>(false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export default function EmployeeDetailsPage() {
           setEditableEmploymentType(data.employmentType || 'fullTime');
           setEditableMonthlySalary(data.monthlySalary?.toString() || '');
           setEditableWeeklyWorkingHours(data.weeklyWorkingHours?.toString() || '');
+          setEditableAllowOverlap(data.allow_overlap || false);
 
           // Initialize weekly work hours
           if (data.weekly_work_hours) {
@@ -83,7 +85,7 @@ export default function EmployeeDetailsPage() {
     return () => { isMounted = false; };
   }, [id]);
 
-  const handleUpdate = async (field: 'status' | 'hireDate' | 'employmentType' | 'monthlySalary' | 'weeklyWorkingHours') => {
+  const handleUpdate = async (field: 'status' | 'hireDate' | 'employmentType' | 'monthlySalary' | 'weeklyWorkingHours' | 'allow_overlap') => {
     if (!id || !employee) return;
 
     let value: any;
@@ -92,6 +94,7 @@ export default function EmployeeDetailsPage() {
     else if (field === 'employmentType') value = editableEmploymentType;
     else if (field === 'monthlySalary') value = editableMonthlySalary ? parseFloat(editableMonthlySalary) : null;
     else if (field === 'weeklyWorkingHours') value = editableWeeklyWorkingHours ? parseInt(editableWeeklyWorkingHours) : null;
+    else if (field === 'allow_overlap') value = editableAllowOverlap;
 
     // Compare with current value
     const currentValue = (employee as any)[field];
@@ -439,6 +442,41 @@ export default function EmployeeDetailsPage() {
           ) : (
             <div className="text-lg text-gray-900">
               {employee.weeklyWorkingHours ? `${employee.weeklyWorkingHours} hs/semana` : 'N/D'}
+            </div>
+          )}
+        </div>
+
+        {/* Allow Overlap (Level 6 only) */}
+        <div>
+          <div className="text-sm text-gray-500">Agendamiento Superpuesto</div>
+          {canAccessAnalytics ? (
+            <div className="flex items-center gap-3 mt-1">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editableAllowOverlap}
+                  onChange={(e) => setEditableAllowOverlap(e.target.checked)}
+                  className="sr-only peer"
+                  disabled={isSaving}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
+                <span className="ml-3 text-sm font-medium text-gray-700">
+                  {editableAllowOverlap ? 'Permitido' : 'No Permitido'}
+                </span>
+              </label>
+              {editableAllowOverlap !== (employee.allow_overlap || false) && (
+                <button
+                  onClick={() => handleUpdate('allow_overlap')}
+                  disabled={isSaving}
+                  className="px-3 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 disabled:opacity-50 text-sm font-medium"
+                >
+                  {isSaving ? 'Guardando...' : 'Guardar'}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="text-lg text-gray-900">
+              {employee.allow_overlap ? 'Permitido' : 'No Permitido'}
             </div>
           )}
         </div>

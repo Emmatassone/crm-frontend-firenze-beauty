@@ -6,6 +6,7 @@ import { z } from 'zod';
 import Link from 'next/link';
 import Select from 'react-select';
 import { Employee } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/auth';
 
 const jobTitleOptions = [
   { value: 'Uñas', label: 'Uñas' },
@@ -37,6 +38,7 @@ const employeeSchema = z.object({
   }, { message: 'La fecha debe ser DD-MM-AAAA' }),
   hireDate: z.string().optional().or(z.literal('')),
   employmentType: z.enum(['fullTime', 'partTime']).optional().or(z.literal('')),
+  allow_overlap: z.boolean().optional(),
 });
 
 export type EmployeeFormValues = z.infer<typeof employeeSchema>;
@@ -49,6 +51,7 @@ interface EmployeeFormProps {
 }
 
 export default function EmployeeForm({ onSubmit, isLoading, defaultValues, isEdit = false }: EmployeeFormProps) {
+  const { canAccessAnalytics } = useAuthStore();
   const {
     register,
     handleSubmit,
@@ -184,6 +187,20 @@ export default function EmployeeForm({ onSubmit, isLoading, defaultValues, isEdi
         </select>
         {errors.employmentType && <p className={errorStyle}>{errors.employmentType.message}</p>}
       </div>
+
+      {canAccessAnalytics && (
+        <div className="flex items-center">
+          <input
+            id="allow_overlap"
+            type="checkbox"
+            {...register('allow_overlap')}
+            className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded cursor-pointer"
+          />
+          <label htmlFor="allow_overlap" className="ml-2 block text-sm text-gray-700 cursor-pointer">
+            Permitir agendamiento superpuesto (Overlapping)
+          </label>
+        </div>
+      )}
 
       <div className="flex items-center justify-end space-x-4">
         <Link href="/employees" className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
