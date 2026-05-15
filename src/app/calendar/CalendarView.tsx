@@ -68,6 +68,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [filterEmployeeId, setFilterEmployeeId] = useState<string>('all');
     const [filterClientId, setFilterClientId] = useState<string>('all');
+    const [filterServiceId, setFilterServiceId] = useState<string>('all');
     const [isActionModalOpen, setIsActionModalOpen] = useState(false);
     const [selectedEventForAction, setSelectedEventForAction] = useState<AppointmentSchedule | null>(null);
     const [visibleDays, setVisibleDays] = useState<number[]>([1, 2, 3, 4, 5, 6]); // Default Mon-Sat
@@ -842,6 +843,10 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             ? allEmployees.find(e => e.id === filterEmployeeId)
             : null;
 
+        const selectedServiceObj = filterServiceId !== 'all'
+            ? availableServices.find(s => s.id === filterServiceId)
+            : null;
+
         const daysOfWeekNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
         // Calculate total rows to determine if a day is in the last row
@@ -888,7 +893,10 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                         ? (showRetiredSetting || !retiredEmployeeIds.has(String(e.employeeId))) 
                         : String(e.employeeId) === filterEmployeeId);
                     const matchesClient = filterClientId === 'all' || String(e.clientId) === filterClientId;
-                    return isSameDay && matchesEmployee && matchesClient;
+                    const matchesService = filterServiceId === 'all' || 
+                        String(e.serviceId) === filterServiceId || 
+                        !!(selectedServiceObj && e.title && e.title.includes(selectedServiceObj.name));
+                    return isSameDay && matchesEmployee && matchesClient && matchesService;
                 }).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
                 renderDayCell(days as React.ReactNode[], day, date, dayEvents, isToday(date), totalRows, visibleDayCount, selectedEmployee || null, daysOfWeekNames, MAX_VISIBLE_APPOINTMENTS);
@@ -914,7 +922,10 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                         ? (showRetiredSetting || !retiredEmployeeIds.has(String(e.employeeId))) 
                         : String(e.employeeId) === filterEmployeeId);
                     const matchesClient = filterClientId === 'all' || String(e.clientId) === filterClientId;
-                    return isSameDay && matchesEmployee && matchesClient;
+                    const matchesService = filterServiceId === 'all' || 
+                        String(e.serviceId) === filterServiceId || 
+                        !!(selectedServiceObj && e.title && e.title.includes(selectedServiceObj.name));
+                    return isSameDay && matchesEmployee && matchesClient && matchesService;
                 }).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
                 renderDayCell(days as React.ReactNode[], date.getDate(), date, dayEvents, isToday(date), 1, visibleDayCount, selectedEmployee || null, daysOfWeekNames, 99); // More space in week view
@@ -1215,6 +1226,30 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                             {allEmployees.filter(emp => showRetiredSetting || emp.status !== 'retired').map(emp => (
                                 <option key={emp.id} value={emp.id} className="text-gray-900">
                                     {emp.name}{emp.status === 'retired' ? ' (Retirado)' : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Service Filter */}
+                    <div className={`flex items-center space-x-2 p-1.5 rounded-xl border transition-all duration-300 ${filterServiceId === 'all'
+                        ? 'bg-gray-50 border-gray-200'
+                        : 'bg-indigo-50 border-indigo-200 shadow-sm ring-4 ring-indigo-500/5'
+                        }`}>
+                        <span className={`text-[10px] font-bold px-2 uppercase tracking-widest whitespace-nowrap ${filterServiceId === 'all' ? 'text-gray-400' : 'text-indigo-600'
+                            }`}>
+                            Servicio:
+                        </span>
+                        <select
+                            value={filterServiceId}
+                            onChange={(e) => setFilterServiceId(e.target.value)}
+                            className={`text-xs md:text-sm border-none bg-transparent focus:ring-0 font-bold flex-1 min-w-0 cursor-pointer ${filterServiceId === 'all' ? 'text-gray-700' : 'text-indigo-700'
+                                }`}
+                        >
+                            <option value="all" className="text-gray-900">Todos</option>
+                            {availableServices.map(srv => (
+                                <option key={srv.id} value={srv.id} className="text-gray-900">
+                                    {srv.name}
                                 </option>
                             ))}
                         </select>
