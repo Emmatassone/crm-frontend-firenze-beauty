@@ -58,6 +58,8 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
     const [availableClients, setAvailableClients] = useState<ClientProfile[]>([]);
     const [selectedServices, setSelectedServices] = useState<any[]>([]);
     const [serviceDataSources, setServiceDataSources] = useState<Record<string, 'personal' | 'default'>>({});
+    // Tracks the timestamp of the last manual edit to "Hora Fin" so the async auto-calc doesn't overwrite it
+    const manualEndTimeRef = useRef<number>(0);
     const [retiredEmployeeIds, setRetiredEmployeeIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
@@ -233,6 +235,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 return;
             }
 
+            // Snapshot the manual-edit timestamp before the async call
+            const calcStartedAt = Date.now();
+
             const employee = allEmployees.find(e => e.id === formData.employeeId);
             if (!employee) return;
 
@@ -301,13 +306,17 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                 setServiceDataSources(newSources);
 
                 if (totalDuration > 0) {
-                    const startDate = new Date(formData.start);
-                    const endDate = new Date(startDate.getTime() + totalDuration * 60000);
+                    // Only apply auto-calculated end time if the user hasn't manually edited it
+                    // since this async calculation started
+                    if (manualEndTimeRef.current <= calcStartedAt) {
+                        const startDate = new Date(formData.start);
+                        const endDate = new Date(startDate.getTime() + totalDuration * 60000);
 
-                    setFormData(prev => ({
-                        ...prev,
-                        end: formatToLocalISO(endDate)
-                    }));
+                        setFormData(prev => ({
+                            ...prev,
+                            end: formatToLocalISO(endDate)
+                        }));
+                    }
                 }
             } catch (err) {
                 console.error("Error calculating duration:", err);
@@ -402,6 +411,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
             ...prefilledData
         });
         setSelectedServices([]);
+        manualEndTimeRef.current = 0;
         setServiceDataSources({});
         setErrorMessage(null);
         setEditingEvent(null);
@@ -684,6 +694,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                     const dayName = daysOfWeek[startDate.getDay()];
 
                     const workHours = employee.weekly_work_hours[dayName];
+
                     if (workHours && workHours['check-in'] && workHours['check-out']) {
                         // Parse work hours
                         const [checkInHour, checkInMinute] = workHours['check-in'].split(':').map(Number);
@@ -1420,7 +1431,10 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                     <select
                                         className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 border"
                                         value={formData.employeeId || ''}
-                                        onChange={(e) => setFormData({ ...formData, employeeId: e.target.value || undefined })}
+                                        onChange={(e) => {
+                                            setFormData({ ...formData, employeeId: e.target.value || undefined });
+                                            setErrorMessage(null);
+                                        }}
                                     >
                                         <option value="">Seleccionar...</option>
                                         {activeEmployees.map(emp => (
@@ -1438,6 +1452,7 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                         options={serviceOptions}
                                         value={selectedServices}
                                         onChange={(selected, actionMeta) => {
+                                            setErrorMessage(null);
                                             // Allow duplicate services by adding unique IDs
                                             if (actionMeta.action === 'select-option' && actionMeta.option) {
                                                 const newService = {
@@ -1535,8 +1550,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                     <TimePickerAMPM
                                         value={formData.start?.split('T')[1]?.substring(0, 5) || ''}
                                         onChange={(time) => {
-                                            const datePart = formData.start.split('T')[0];
+                                            const datePart = formData.start?.split('T')[0] || new Date().toISOString().split('T')[0];
                                             setFormData({ ...formData, start: `${datePart}T${time}` });
+                                            setErrorMessage(null);
                                         }}
                                         required
                                     />
@@ -1546,8 +1562,13 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                     <TimePickerAMPM
                                         value={formData.end?.split('T')[1]?.substring(0, 5) || ''}
                                         onChange={(time) => {
-                                            const datePart = formData.end.split('T')[0];
+                                            // ALWAYS use the start date as the date part for manual end time edits.
+                                            // Otherwise, if the auto-calc pushed the end time to the next day,
+                                            // the manual time edit would preserve the wrong day and fail validation.
+                                            const datePart = formData.start?.split('T')[0] || new Date().toISOString().split('T')[0];
+                                            manualEndTimeRef.current = Date.now();
                                             setFormData({ ...formData, end: `${datePart}T${time}` });
+                                            setErrorMessage(null);
                                         }}
                                         required
                                     />
