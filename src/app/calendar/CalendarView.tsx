@@ -1211,9 +1211,9 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                             className={`text-xs md:text-sm border-none bg-transparent focus:ring-0 font-bold flex-1 min-w-0 cursor-pointer ${filterEmployeeId === 'all' ? 'text-gray-700' : 'text-pink-700'
                                 } ${isLevel123 ? 'cursor-not-allowed opacity-70' : ''}`}
                         >
-                            {!isLevel123 && <option value="all">Todos los Profesionales</option>}
+                            {!isLevel123 && <option value="all" className="text-gray-900">Todos los Profesionales</option>}
                             {allEmployees.filter(emp => showRetiredSetting || emp.status !== 'retired').map(emp => (
-                                <option key={emp.id} value={emp.id}>
+                                <option key={emp.id} value={emp.id} className="text-gray-900">
                                     {emp.name}{emp.status === 'retired' ? ' (Retirado)' : ''}
                                 </option>
                             ))}
@@ -1429,16 +1429,16 @@ export default function CalendarView({ selectedClient, onClearClient }: Calendar
                                 <div className={formData.status === 'unavailable' ? "col-span-2" : ""}>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Profesional</label>
                                     <select
-                                        className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 border"
+                                        className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm p-2.5 border text-gray-900 bg-white"
                                         value={formData.employeeId || ''}
                                         onChange={(e) => {
                                             setFormData({ ...formData, employeeId: e.target.value || undefined });
                                             setErrorMessage(null);
                                         }}
                                     >
-                                        <option value="">Seleccionar...</option>
+                                        <option value="" className="text-gray-900 bg-white">Seleccionar...</option>
                                         {activeEmployees.map(emp => (
-                                            <option key={emp.id} value={emp.id}>{emp.name}</option>
+                                            <option key={emp.id} value={emp.id} className="text-gray-900 bg-white">{emp.name}</option>
                                         ))}
                                     </select>
                                 </div>
